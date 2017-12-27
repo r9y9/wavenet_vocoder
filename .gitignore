@@ -1,5 +1,5 @@
 pretrained_models
-deepvoice3_pytorch/version.py
+wavenet_vocoder/version.py
 checkpoints*
 log
 generated
