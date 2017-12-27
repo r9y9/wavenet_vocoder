@@ -19,7 +19,7 @@ def test_conv_block():
 
 def test_wavenet():
     model = WaveNet()
-    x = Variable(torch.zeros(16, 1, 1000))
+    x = Variable(torch.zeros(16, 256, 1000))
     print(model)
     y = model(x)
     print(y.size())

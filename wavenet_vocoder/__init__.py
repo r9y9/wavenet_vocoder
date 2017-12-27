@@ -79,21 +79,21 @@ class Conv1dGLU(nn.Module):
 
 
 class WaveNet(nn.Module):
-    def __init__(self, labels=256, layers=12, stacks=2, kernel_size=3):
-        super(WaveNet, self).__init__()
-        self.layers = layers
-        self.stacks = stacks
-        self.labels = labels
+    """WaveNet
+    """
 
+    def __init__(self, labels=256, channels=64, layers=12, stacks=2,
+                 kernel_size=3, dropout=1 - 0.95):
+        super(WaveNet, self).__init__()
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-
-        C = 128
-        self.first_conv = Conv1d1x1(1, C)
+        C = channels
+        self.first_conv = Conv1d1x1(labels, C)
         self.conv_layers = nn.ModuleList()
         for stack in range(stacks):
             for layer in range(layers_per_stack):
-                conv = Conv1dGLU(C, C, kernel_size=kernel_size, dilation=2**layer)
+                conv = Conv1dGLU(C, C, kernel_size=kernel_size,
+                                 dilation=2**layer, dropout=dropout)
                 self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(),
@@ -106,10 +106,10 @@ class WaveNet(nn.Module):
         """Forward step
 
         Args:
-            x : B x 1 x T
+            x : Variable of one-hot encoded audio signal, shape (B x labels x T)
 
         Returns:
-            B x 1 x T
+            Variable: outupt, shape B x labels x T
         """
         x = self.first_conv(x)
         skips = None
