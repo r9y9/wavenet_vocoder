@@ -220,8 +220,32 @@ def time_string():
     return datetime.now().strftime('%Y-%m-%d %H:%M')
 
 
-def eval_model(global_step, writer, model, checkpoint_dir):
-    pass
+def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
+    print("Eval model at step {}".format(global_step))
+    model.eval()
+    idx = np.random.randint(0, len(y))
+    length = input_lengths[idx].data.cpu().numpy()[0]
+
+    # (T,)
+    y_target = y[idx].view(-1).data.cpu().long().numpy()[:length]
+
+    # (C,)
+    initial_input = np_utils.to_categorical(y_target[0], num_classes=256).astype(np.float32)
+    initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
+    initial_input = initial_input.cuda() if use_cuda else initial_input
+    y_hat = model.incremental_forward(initial_input, T=length, tqdm=tqdm)
+    y_hat = F.softmax(y_hat, dim=1).max(1)[1].view(-1).long().cpu().data.numpy()
+    y_hat = P.inv_mulaw_quantize(y_hat)
+
+    y_target = P.inv_mulaw_quantize(y_target)
+
+    # Save audio
+    audio_dir = join(checkpoint_dir, "eval")
+    os.makedirs(audio_dir, exist_ok=True)
+    path = join(audio_dir, "step{:09d}_predicted.wav".format(global_step))
+    librosa.output.write_wav(path, y_hat, sr=hparams.sample_rate)
+    path = join(audio_dir, "step{:09d}_target.wav".format(global_step))
+    librosa.output.write_wav(path, y_target, sr=hparams.sample_rate)
 
 
 def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=None):
@@ -307,7 +331,7 @@ def train(model, data_loader, optimizer, writer,
                     model, optimizer, global_step, checkpoint_dir, global_epoch)
 
             if global_step > 0 and global_step % hparams.eval_interval == 0:
-                eval_model(global_step, writer, model, checkpoint_dir)
+                eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir)
 
             # Update
             loss.backward()
@@ -346,6 +370,8 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
 
 def build_model():
     model = getattr(builder, hparams.builder)(
+        layers=hparams.layers,
+        stacks=hparams.stacks,
         channels=hparams.channels,
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size)

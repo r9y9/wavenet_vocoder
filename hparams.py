@@ -20,6 +20,8 @@ hparams = tf.contrib.training.HParams(
     sample_rate=8000,
 
     # Model:
+    layers=12,
+    stacks=2,
     channels=64,
     dropout=1 - 0.95,
     kernel_size=3,
