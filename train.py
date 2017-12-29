@@ -233,8 +233,9 @@ def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
     initial_input = np_utils.to_categorical(y_target[0], num_classes=256).astype(np.float32)
     initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
     initial_input = initial_input.cuda() if use_cuda else initial_input
-    y_hat = model.incremental_forward(initial_input, T=length, tqdm=tqdm)
-    y_hat = F.softmax(y_hat, dim=1).max(1)[1].view(-1).long().cpu().data.numpy()
+    y_hat = model.incremental_forward(
+        initial_input, T=length, tqdm=tqdm, softmax=True, quantize=True)
+    y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
     y_hat = P.inv_mulaw_quantize(y_hat)
 
     y_target = P.inv_mulaw_quantize(y_target)
@@ -316,7 +317,8 @@ def train(model, data_loader, optimizer, writer,
             mask = mask[:, 1:, :]
 
             # Apply model
-            y_hat = model(x)
+            # NOTE: softmax is handled in F.cross_entrypy_lsos
+            y_hat = model(x, softmax=False)
 
             # wee need 4d inputs for spatial cross entropy loss
             # (B, C, T, 1)

@@ -107,7 +107,7 @@ class WaveNet(nn.Module):
             Conv1d1x1(C, labels),
         ])
 
-    def forward(self, x):
+    def forward(self, x, softmax=False):
         """Forward step
 
         Args:
@@ -125,10 +125,13 @@ class WaveNet(nn.Module):
         x = skips
         for f in self.last_conv_layers:
             x = f(x)
+
+        x = F.softmax(x, dim=1) if softmax else x
+
         return x
 
     def incremental_forward(self, initial_input=None, T=8000, test_inputs=None,
-                            tqdm=lambda x: x):
+                            tqdm=lambda x: x, softmax=True, quantize=True):
         self.clear_buffer()
         B = 1
 
@@ -167,7 +170,12 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            outputs += [x.view(B, -1)]
+            x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
+            if quantize:
+                _, max_idx = x.max(1)
+                x.zero_()
+                x[:, max_idx] = 1.0
+            outputs += [x]
 
         # T x B x C
         outputs = torch.stack(outputs)

@@ -26,6 +26,7 @@ from keras.utils import np_utils
 from wavenet_vocoder import Conv1dGLU, WaveNet
 
 use_cuda = torch.cuda.is_available()
+# use_cuda = False
 
 
 def test_conv_block():
@@ -46,7 +47,7 @@ def test_wavenet():
 def test_incremental_forward_correctness():
     model = WaveNet()
 
-    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000028000.pth")
+    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000100000.pth")
     if exists(checkpoint_path):
         print("Loading from:", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
@@ -75,13 +76,13 @@ def test_incremental_forward_correctness():
     model.eval()
 
     # Batch forward
-    y_offline = model(x)
+    y_offline = model(x, softmax=True)
 
     # Test from zero start
-    y_online = model.incremental_forward(initial_input=None, T=100, tqdm=tqdm)
+    y_online = model.incremental_forward(initial_input=None, T=100, tqdm=tqdm, softmax=True)
 
     # Incremental forward with forced teaching
-    y_online = model.incremental_forward(test_inputs=x, tqdm=tqdm)
+    y_online = model.incremental_forward(test_inputs=x, tqdm=tqdm, softmax=True, quantize=False)
 
     # (1 x C x T)
     c = (y_offline - y_online).abs()
@@ -96,13 +97,14 @@ def test_incremental_forward_correctness():
 
     # With zero start
     initial_input = x[:, :, 0].unsqueeze(-1).contiguous()
-    y_inference = model.incremental_forward(initial_input=initial_input, T=x.size(-1), tqdm=tqdm)
+    y_inference = model.incremental_forward(
+        initial_input=initial_input, T=x.size(-1), tqdm=tqdm, softmax=True, quantize=True)
 
     # Waveforms
     # (T,)
-    y_offline = F.softmax(y_offline, dim=1).max(1)[1].view(-1)
-    y_online = F.softmax(y_online, dim=1).max(1)[1].view(-1)
-    y_inference = F.softmax(y_inference, dim=1).max(1)[1].view(-1)
+    y_offline = y_offline.max(1)[1].view(-1)
+    y_online = y_online.max(1)[1].view(-1)
+    y_inference = y_inference.max(1)[1].view(-1)
 
     y_offline = P.inv_mulaw_quantize(y_offline.cpu().data.long().numpy())
     y_online = P.inv_mulaw_quantize(y_online.cpu().data.long().numpy())
@@ -119,7 +121,8 @@ def test_incremental_forward_correctness():
     librosa.display.waveplot(y_inference, sr=sr)
     plt.show()
 
-    save_audio = False
+    save_audio = True
     if save_audio:
         librosa.output.write_wav("target.wav", x_org, sr=sr)
-        librosa.output.write_wav("predicted.wav", y_offline, sr=sr)
+        librosa.output.write_wav("online.wav", y_online, sr=sr)
+        librosa.output.write_wav("inference.wav", y_inference, sr=sr)
