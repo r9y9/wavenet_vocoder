@@ -22,7 +22,7 @@ hparams = tf.contrib.training.HParams(
     # Model:
     layers=20,
     stacks=2,
-    channels=64,
+    channels=128,
     dropout=1 - 0.95,
     kernel_size=3,
 
@@ -37,7 +37,7 @@ hparams = tf.contrib.training.HParams(
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
-    initial_learning_rate=1e-4,
+    initial_learning_rate=1e-3,
     lr_schedule="noam_learning_rate_decay",
     lr_schedule_kwargs={},
     nepochs=2000,

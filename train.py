@@ -77,7 +77,7 @@ def _pad_2d(x, max_len, b_pad=0):
     return x
 
 
-def remove_almost_silence(quantized_signal, silence_threshold=1):
+def remove_almost_silence(quantized_signal, silence_threshold=2):
     for start in range(quantized_signal.size):
         if abs(quantized_signal[start] - 127) > silence_threshold:
             break
