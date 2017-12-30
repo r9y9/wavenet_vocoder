@@ -182,9 +182,9 @@ class WaveNet(nn.Module):
 
             x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
             if quantize:
-                _, max_idx = x.max(1)
+                sample = np.random.choice(np.arange(self.labels), p=x.view(-1).data.cpu().numpy())
                 x.zero_()
-                x[:, max_idx] = 1.0
+                x[:, sample] = 1.0
             outputs += [x]
 
         # T x B x C
