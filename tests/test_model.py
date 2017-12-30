@@ -45,9 +45,9 @@ def test_wavenet():
 
 
 def test_incremental_forward_correctness():
-    model = WaveNet(layers=20, stacks=2, channels=64)
+    model = WaveNet(layers=20, stacks=2, channels=128)
 
-    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000100000.pth")
+    checkpoint_path = join(dirname(__file__), "..", "foobar/checkpoint_step000027000.pth")
     if exists(checkpoint_path):
         print("Loading from:", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
@@ -103,7 +103,7 @@ def test_incremental_forward_correctness():
     print("Inital value:", initial_input.view(-1).max(0)[1])
 
     # With zero start
-    zerostart = False
+    zerostart = True
     if zerostart:
         y_inference = model.incremental_forward(
             initial_input=initial_input, T=xt.size(1), tqdm=tqdm, softmax=True, quantize=True)
