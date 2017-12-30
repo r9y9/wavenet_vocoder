@@ -47,7 +47,7 @@ def test_wavenet():
 def test_incremental_forward_correctness():
     model = WaveNet(layers=20, stacks=2, channels=64)
 
-    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000030000.pth")
+    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000100000.pth")
     if exists(checkpoint_path):
         print("Loading from:", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
@@ -95,12 +95,24 @@ def test_incremental_forward_correctness():
         from warnings import warn
         warn("oops! must be a bug!")
 
-    # With zero start
-    initial_input = x[:, :, 0].unsqueeze(-1).transpose(1, 2).contiguous()
+    # (1, T, C)
+    xt = x.transpose(1, 2).contiguous()
+
+    initial_input = xt[:, 0, :].unsqueeze(1).contiguous()
     print(initial_input.size())
     print("Inital value:", initial_input.view(-1).max(0)[1])
-    y_inference = model.incremental_forward(
-        initial_input=initial_input, T=x.size(-1), tqdm=tqdm, softmax=True, quantize=True)
+
+    # With zero start
+    zerostart = False
+    if zerostart:
+        y_inference = model.incremental_forward(
+            initial_input=initial_input, T=xt.size(1), tqdm=tqdm, softmax=True, quantize=True)
+    else:
+        # Feed a few samples as test_inputs and then generate auto-regressively
+        N = 1000
+        y_inference = model.incremental_forward(
+            initial_input=None, test_inputs=xt[:, :N, :],
+            T=xt.size(1), tqdm=tqdm, softmax=True, quantize=True)
 
     # Waveforms
     # (T,)

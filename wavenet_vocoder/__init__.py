@@ -139,7 +139,7 @@ class WaveNet(nn.Module):
 
         return x
 
-    def incremental_forward(self, initial_input=None, T=8000, test_inputs=None,
+    def incremental_forward(self, initial_input=None, T=100, test_inputs=None,
                             tqdm=lambda x: x, softmax=True, quantize=True):
         self.clear_buffer()
         B = 1
@@ -149,7 +149,8 @@ class WaveNet(nn.Module):
         if test_inputs is not None:
             if test_inputs.size(1) == self.labels:
                 test_inputs = test_inputs.transpose(1, 2).contiguous()
-            B, T = test_inputs.size(0), test_inputs.size(1)
+            B = test_inputs.size(0)
+            T = max(T, test_inputs.size(1))
 
         outputs = []
         if initial_input is None:
@@ -160,7 +161,7 @@ class WaveNet(nn.Module):
                 initial_input = initial_input.cuda()
         current_input = initial_input
         for t in tqdm(range(T)):
-            if test_inputs is not None:
+            if test_inputs is not None and t < test_inputs.size(1):
                 current_input = test_inputs[:, t, :].unsqueeze(1)
             else:
                 if t > 0:
