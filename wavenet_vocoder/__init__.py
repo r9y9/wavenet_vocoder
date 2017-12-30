@@ -14,8 +14,8 @@ from torch.nn import functional as F
 from deepvoice3_pytorch.modules import Conv1d, Linear
 
 
-def Conv1d1x1(in_channels, out_channels):
-    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0, dilation=1)
+def Conv1d1x1(in_channels, out_channels, bias=True):
+    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0, dilation=1, bias=True)
 
 
 class Conv1dGLU(nn.Module):
@@ -24,10 +24,9 @@ class Conv1dGLU(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
-                 residual=True, *args, **kwargs):
+                 bias=True, *args, **kwargs):
         super(Conv1dGLU, self).__init__()
         self.dropout = dropout
-        self.residual = residual
         if padding is None:
             # no future time stamps available
             if causal:
@@ -38,8 +37,9 @@ class Conv1dGLU(nn.Module):
 
         self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
                            dropout=dropout, padding=padding, dilation=dilation,
-                           *args, **kwargs)
-        self.conv1x1 = Conv1d1x1(out_channels, out_channels)
+                           bias=bias, *args, **kwargs)
+        self.conv1x1_out = Conv1d1x1(out_channels, out_channels, bias=bias)
+        self.conv1x1_skip = Conv1d1x1(out_channels, out_channels, bias=bias)
 
     def forward(self, x, c=None):
         return self._forward(x, c, False)
@@ -69,17 +69,24 @@ class Conv1dGLU(nn.Module):
 
         x = F.tanh(a) * F.sigmoid(b)
 
+        # For skip connection
         if is_incremental:
-            x = self.conv1x1.incremental_forward(x)
+            s = self.conv1x1_skip.incremental_forward(x)
         else:
-            x = self.conv1x1(x)
+            s = self.conv1x1_skip(x)
 
-        y = (x + residual) * math.sqrt(0.5) if self.residual else x
+        # For residual connection
+        if is_incremental:
+            x = self.conv1x1_out.incremental_forward(x)
+        else:
+            x = self.conv1x1_out(x)
 
-        return y, x
+        x = (x + residual) * math.sqrt(0.5)
+        return x, s
 
     def clear_buffer(self):
-        self.conv.clear_buffer()
+        for conv in [self.conv, self.conv1x1_out, self.conv1x1_skip]:
+            self.conv.clear_buffer()
 
 
 class WaveNet(nn.Module):
@@ -97,13 +104,15 @@ class WaveNet(nn.Module):
         self.conv_layers = nn.ModuleList()
         for stack in range(stacks):
             for layer in range(layers_per_stack):
+                dilation = 2**layer
                 conv = Conv1dGLU(C, C, kernel_size=kernel_size,
-                                 dilation=2**layer, dropout=dropout)
+                                 bias=True,  # magenda uses bias, but musyoku doesn't
+                                 dilation=dilation, dropout=dropout)
                 self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             Conv1d1x1(C, C),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             Conv1d1x1(C, labels),
         ])
 

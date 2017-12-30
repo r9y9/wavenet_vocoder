@@ -77,16 +77,29 @@ def _pad_2d(x, max_len, b_pad=0):
     return x
 
 
+def remove_almost_silence(quantized_signal, silence_threshold=1):
+    for start in range(quantized_signal.size):
+        if abs(quantized_signal[start] - 127) > silence_threshold:
+            break
+    for end in range(1, quantized_signal.size):
+        if abs(quantized_signal[-end] - 127) > silence_threshold:
+            break
+
+    quantized_signal = quantized_signal[start:-end]
+    return quantized_signal
+
+
 class CMUArcticWavDataSource(cmu_arctic.WavFileDataSource):
     def __init__(self, data_root, speakers=["clb"]):
         super(CMUArcticWavDataSource, self).__init__(data_root, speakers)
 
     def collect_features(self, path):
         x, _ = librosa.load(path, sr=hparams.sample_rate)
-        x, _ = librosa.effects.trim(x, top_db=30)
+        x, _ = librosa.effects.trim(x, top_db=15)
         # (T,)
         x = P.mulaw_quantize(x)
-        return x
+
+        return remove_almost_silence(x)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -220,6 +233,19 @@ def time_string():
     return datetime.now().strftime('%Y-%m-%d %H:%M')
 
 
+def save_waveplot(path, y_hat, y_target):
+    sr = hparams.sample_rate
+
+    plt.figure(figsize=(16, 6))
+    plt.subplot(2, 1, 1)
+    librosa.display.waveplot(y_target, sr=sr)
+    plt.subplot(2, 1, 2)
+    librosa.display.waveplot(y_hat, sr=sr)
+    plt.tight_layout()
+    plt.savefig(path, format="png")
+    plt.close()
+
+
 def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
     print("Eval model at step {}".format(global_step))
     model.eval()
@@ -229,8 +255,11 @@ def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
     # (T,)
     y_target = y[idx].view(-1).data.cpu().long().numpy()[:length]
 
+    initial_value = y_target[0]
+    print("Intial value:", initial_value)
+
     # (C,)
-    initial_input = np_utils.to_categorical(y_target[0], num_classes=256).astype(np.float32)
+    initial_input = np_utils.to_categorical(initial_value, num_classes=256).astype(np.float32)
     initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
@@ -247,6 +276,10 @@ def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
     librosa.output.write_wav(path, y_hat, sr=hparams.sample_rate)
     path = join(audio_dir, "step{:09d}_target.wav".format(global_step))
     librosa.output.write_wav(path, y_target, sr=hparams.sample_rate)
+
+    # save figure
+    path = join(audio_dir, "step{:09d}_waveplots.png".format(global_step))
+    save_waveplot(path, y_hat, y_target)
 
 
 def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=None):

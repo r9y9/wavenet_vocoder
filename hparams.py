@@ -17,10 +17,10 @@ hparams = tf.contrib.training.HParams(
     },
 
     # Audio:
-    sample_rate=8000,
+    sample_rate=4000,
 
     # Model:
-    layers=12,
+    layers=20,
     stacks=2,
     channels=64,
     dropout=1 - 0.95,
@@ -33,7 +33,7 @@ hparams = tf.contrib.training.HParams(
     # Loss
 
     # Training:
-    batch_size=4,
+    batch_size=2,
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
@@ -42,11 +42,11 @@ hparams = tf.contrib.training.HParams(
     lr_schedule_kwargs={},
     nepochs=2000,
     weight_decay=0.0,
-    clip_thresh=0.1,
+    clip_thresh=1.0,
 
     # Save
     checkpoint_interval=1000,
-    eval_interval=1000,
+    eval_interval=10000,
     save_optimizer_state=True,
 
     # Eval:

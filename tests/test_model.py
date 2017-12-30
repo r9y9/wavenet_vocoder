@@ -26,7 +26,7 @@ from keras.utils import np_utils
 from wavenet_vocoder import Conv1dGLU, WaveNet
 
 use_cuda = torch.cuda.is_available()
-# use_cuda = False
+use_cuda = False
 
 
 def test_conv_block():
@@ -45,9 +45,9 @@ def test_wavenet():
 
 
 def test_incremental_forward_correctness():
-    model = WaveNet()
+    model = WaveNet(layers=20, stacks=2, channels=64)
 
-    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000100000.pth")
+    checkpoint_path = join(dirname(__file__), "..", "checkpoints/checkpoint_step000030000.pth")
     if exists(checkpoint_path):
         print("Loading from:", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
@@ -56,9 +56,9 @@ def test_incremental_forward_correctness():
     if use_cuda:
         model = model.cuda()
 
-    sr = 8000
+    sr = 4000
     x, _ = librosa.load(pysptk.util.example_audio_file(), sr=sr)
-    x, _ = librosa.effects.trim(x, top_db=25)
+    x, _ = librosa.effects.trim(x, top_db=15)
 
     # To save computational cost
     x = x[:3000]
@@ -96,7 +96,9 @@ def test_incremental_forward_correctness():
         warn("oops! must be a bug!")
 
     # With zero start
-    initial_input = x[:, :, 0].unsqueeze(-1).contiguous()
+    initial_input = x[:, :, 0].unsqueeze(-1).transpose(1, 2).contiguous()
+    print(initial_input.size())
+    print("Inital value:", initial_input.view(-1).max(0)[1])
     y_inference = model.incremental_forward(
         initial_input=initial_input, T=x.size(-1), tqdm=tqdm, softmax=True, quantize=True)
 
