@@ -14,12 +14,29 @@ from torch.nn import functional as F
 from .modules import Conv1d1x1, Conv1dGLU
 
 
+def _expand_global_features(B, T, g):
+    """Expand global conditioning features to all time steps
+
+    Args:
+        g (Variable): Global features
+
+    Returns:
+        Variable: B x C x T
+    """
+    if g is None:
+        return None
+    g = g.unsqueeze(-1) if g.dim() == 2 else g
+    g_bct = g.expand(B, -1, T)
+    return g_bct.contiguous()
+
+
 class WaveNet(nn.Module):
     """WaveNet
     """
 
     def __init__(self, labels=256, channels=64, layers=12, stacks=2,
-                 kernel_size=3, dropout=1 - 0.95):
+                 kernel_size=3, dropout=1 - 0.95,
+                 cin_channels=None, gin_channels=None):
         super(WaveNet, self).__init__()
         self.labels = labels
         assert layers % stacks == 0
@@ -32,7 +49,9 @@ class WaveNet(nn.Module):
                 dilation = 2**layer
                 conv = Conv1dGLU(C, C, kernel_size=kernel_size,
                                  bias=True,  # magenda uses bias, but musyoku doesn't
-                                 dilation=dilation, dropout=dropout)
+                                 dilation=dilation, dropout=dropout,
+                                 cin_channels=cin_channels,
+                                 gin_channels=gin_channels)
                 self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
@@ -41,19 +60,27 @@ class WaveNet(nn.Module):
             Conv1d1x1(C, labels),
         ])
 
-    def forward(self, x, softmax=False):
+    def forward(self, x, c=None, g=None, softmax=False):
         """Forward step
 
         Args:
-            x : Variable of one-hot encoded audio signal, shape (B x labels x T)
+            x (Variable): One-hot encoded audio signal, shape (B x labels x T)
+            c (Variable): Local conditioning features, shape (B x C' x T)
+            g (Variable): Global conditioning features, shape (B x C'')
+            softmax (bool): Whether applies softmax or not.
 
         Returns:
             Variable: outupt, shape B x labels x T
         """
+        # Expand global conditioning features to all time steps
+        B, _, T = x.size()
+        g_bct = _expand_global_features(B, T, g)
+
+        # Feed data to network
         x = self.first_conv(x)
         skips = None
         for f in self.conv_layers:
-            x, h = f(x)
+            x, h = f(x, c, g_bct)
             skips = h if skips is None else (skips + h) * math.sqrt(0.5)
 
         x = skips
@@ -64,8 +91,25 @@ class WaveNet(nn.Module):
 
         return x
 
-    def incremental_forward(self, initial_input=None, T=100, test_inputs=None,
+    def incremental_forward(self, initial_input=None, c=None, g=None,
+                            T=100, test_inputs=None,
                             tqdm=lambda x: x, softmax=True, quantize=True):
+        """Incremental forward
+
+        Args:
+            initial_input (Variable): Initial decoder input, (B x 1 x C)
+            c (Variable): Local conditioning features, shape (B x C' x T)
+            g (Variable): Global conditioning features, shape (B x C'' or B x C''x 1)
+            T (int): Number of time steps to generate.
+            test_inputs (Variable): Teacher forcing inputs (for debugging)
+            tqdm (lamda) : tqdm
+            softmax (bool) : Whether applies softmax or not
+            quantize (bool): Whether quantize softmax output before feeding the
+              network output to input for the next time step.
+
+        Returns:
+            Variable: Generated one-hot encoded samples. B x C x T
+        """
         self.clear_buffer()
         B = 1
 
@@ -75,7 +119,13 @@ class WaveNet(nn.Module):
             if test_inputs.size(1) == self.labels:
                 test_inputs = test_inputs.transpose(1, 2).contiguous()
             B = test_inputs.size(0)
-            T = max(T, test_inputs.size(1))
+            if T is None:
+                T = test_inputs.size(1)
+            else:
+                T = max(T, test_inputs.size(1))
+
+        # Global conditioning
+        g_bct = _expand_global_features(B, T, g)
 
         outputs = []
         if initial_input is None:
@@ -92,11 +142,15 @@ class WaveNet(nn.Module):
                 if t > 0:
                     current_input = outputs[-1]
 
+            # Conditioning features for single time step
+            ct = None if c is None else c[:, :, t]
+            gt = None if g is None else g_bct[:, :, t]
+
             x = current_input
             x = self.first_conv.incremental_forward(x)
             skips = None
             for f in self.conv_layers:
-                x, h = f.incremental_forward(x)
+                x, h = f.incremental_forward(x, ct, gt)
                 skips = h if skips is None else (skips + h) * math.sqrt(0.5)
             x = skips
             for f in self.last_conv_layers:
@@ -107,7 +161,8 @@ class WaveNet(nn.Module):
 
             x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
             if quantize:
-                sample = np.random.choice(np.arange(self.labels), p=x.view(-1).data.cpu().numpy())
+                sample = np.random.choice(
+                    np.arange(self.labels), p=x.view(-1).data.cpu().numpy())
                 x.zero_()
                 x[:, sample] = 1.0
             outputs += [x]

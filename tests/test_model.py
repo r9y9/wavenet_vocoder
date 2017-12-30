@@ -19,6 +19,8 @@ logging.getLogger('tensorflow').disabled = True
 
 from os.path import join, dirname, exists
 
+from nose.plugins.attrib import attr
+
 import tensorflow as tf
 # tf.set_verbosity
 
@@ -27,6 +29,12 @@ from wavenet_vocoder import Conv1dGLU, WaveNet
 
 use_cuda = torch.cuda.is_available()
 use_cuda = False
+
+
+def _pad_2d(x, max_len, b_pad=0):
+    x = np.pad(x, [(b_pad, max_len - len(x) - b_pad), (0, 0)],
+               mode="constant", constant_values=0)
+    return x
 
 
 def test_conv_block():
@@ -44,10 +52,152 @@ def test_wavenet():
     print(y.size())
 
 
+def _quantized_test_data(sr=4000, N=3000, returns_power=False):
+    x, _ = librosa.load(pysptk.util.example_audio_file(), sr=sr)
+    x, _ = librosa.effects.trim(x, top_db=15)
+
+    # To save computational cost
+    x = x[:N]
+
+    # For power conditioning wavenet
+    if returns_power:
+        # (1 x N')
+        p = librosa.feature.rmse(x, frame_length=256, hop_length=128)
+        upsample_factor = x.size // p.size
+        # (1 x N)
+        p = np.repeat(p, upsample_factor, axis=-1)
+        if p.size < x.size:
+            # pad against time axis
+            p = np.pad(p, [(0, 0), (0, x.size - p.size)], mode="constant", constant_values=0)
+
+        # shape adajst
+        p = p.reshape(1, 1, -1)
+
+    # (T,)
+    x = P.mulaw_quantize(x)
+    x_org = P.inv_mulaw_quantize(x)
+
+    # (C, T)
+    x = np_utils.to_categorical(x, num_classes=256).T
+    # (1, C, T)
+    x = x.reshape(1, 256, -1).astype(np.float32)
+
+    if returns_power:
+        return x, x_org, p
+
+    return x, x_org
+
+
+@attr("local_conditioning")
+def test_local_conditioning_correctness():
+    # condition by power
+    x, x_org, c = _quantized_test_data(returns_power=True)
+    model = WaveNet(layers=6, stacks=2, channels=64, cin_channels=1)
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    c = Variable(torch.from_numpy(c).contiguous())
+    c = c.cuda() if use_cuda else c
+    print(c.size())
+
+    model.eval()
+
+    y_offline = model(x, c=c, softmax=True)
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, c=c, T=None, tqdm=tqdm, softmax=True, quantize=False)
+
+    # (1 x C x T)
+    c = (y_offline - y_online).abs()
+    print(c.mean(), c.max())
+
+    try:
+        assert np.allclose(y_offline.cpu().data.numpy(),
+                           y_online.cpu().data.numpy(), atol=1e-4)
+    except:
+        from warnings import warn
+        warn("oops! must be a bug!")
+
+
+@attr("global_conditioning")
+def test_global_conditioning_correctness():
+    # condition by mean power
+    x, x_org, c = _quantized_test_data(returns_power=True)
+    g = c.mean(axis=-1, keepdims=True)
+    model = WaveNet(layers=6, stacks=2, channels=64, gin_channels=1)
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    g = Variable(torch.from_numpy(g).contiguous())
+    g = g.cuda() if use_cuda else g
+    print(g.size())
+
+    model.eval()
+
+    y_offline = model(x, g=g, softmax=True)
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, g=g, T=None, tqdm=tqdm, softmax=True, quantize=False)
+
+    # (1 x C x T)
+    c = (y_offline - y_online).abs()
+    print(c.mean(), c.max())
+
+    try:
+        assert np.allclose(y_offline.cpu().data.numpy(),
+                           y_online.cpu().data.numpy(), atol=1e-4)
+    except:
+        from warnings import warn
+        warn("oops! must be a bug!")
+
+
+@attr("local_and_global_conditioning")
+def test_global_and_local_conditioning_correctness():
+    x, x_org, c = _quantized_test_data(returns_power=True)
+    g = c.mean(axis=-1, keepdims=True)
+    model = WaveNet(layers=6, stacks=2, channels=64, cin_channels=1, gin_channels=1)
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    # per-sample power
+    c = Variable(torch.from_numpy(c).contiguous())
+    c = c.cuda() if use_cuda else c
+
+    # mean power
+    g = Variable(torch.from_numpy(g).contiguous())
+    g = g.cuda() if use_cuda else g
+
+    print(c.size(), g.size())
+
+    model.eval()
+
+    y_offline = model(x, c=c, g=g, softmax=True)
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, c=c, g=g, T=None, tqdm=tqdm, softmax=True, quantize=False)
+    # (1 x C x T)
+
+    c = (y_offline - y_online).abs()
+    print(c.mean(), c.max())
+
+    try:
+        assert np.allclose(y_offline.cpu().data.numpy(),
+                           y_online.cpu().data.numpy(), atol=1e-4)
+    except:
+        from warnings import warn
+        warn("oops! must be a bug!")
+
+
 def test_incremental_forward_correctness():
     model = WaveNet(layers=20, stacks=2, channels=128)
 
-    checkpoint_path = join(dirname(__file__), "..", "foobar/checkpoint_step000027000.pth")
+    checkpoint_path = join(dirname(__file__), "..", "foobar/checkpoint_step000058000.pth")
     if exists(checkpoint_path):
         print("Loading from:", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
@@ -57,19 +207,7 @@ def test_incremental_forward_correctness():
         model = model.cuda()
 
     sr = 4000
-    x, _ = librosa.load(pysptk.util.example_audio_file(), sr=sr)
-    x, _ = librosa.effects.trim(x, top_db=15)
-
-    # To save computational cost
-    x = x[:3000]
-
-    x = P.mulaw_quantize(x)
-    x_org = P.inv_mulaw_quantize(x)
-
-    # (C, T)
-    x = np_utils.to_categorical(x, num_classes=256).T
-    # (1, C, T)
-    x = x.reshape(1, 256, -1).astype(np.float32)
+    x, x_org = _quantized_test_data(sr=sr, N=3000)
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
 
