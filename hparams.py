@@ -26,7 +26,7 @@ hparams = tf.contrib.training.HParams(
     ref_level_db=20,
 
     # Model:
-    layers=12,
+    layers=18,
     stacks=2,
     channels=128,
     dropout=1 - 0.95,
@@ -58,6 +58,9 @@ hparams = tf.contrib.training.HParams(
     nepochs=2000,
     weight_decay=0.0,
     clip_thresh=1.0,
+    # If None, longer samples thean max_time_sec will be trimmed
+    # This is needed for those who don't have huge GPU memory...
+    max_time_sec=5.0,
 
     # Save
     checkpoint_interval=5000,

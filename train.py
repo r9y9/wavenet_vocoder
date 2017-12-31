@@ -208,7 +208,7 @@ def sequence_mask(sequence_length, max_len=None):
     batch_size = sequence_length.size(0)
     seq_range = torch.arange(0, max_len).long()
     seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
-    seq_range_expand = Variable(seq_range_expand)
+    seq_range_expand = Variable(seq_range_expand, requires_grad=False)
     if sequence_length.is_cuda:
         seq_range_expand = seq_range_expand.cuda()
     seq_length_expand = sequence_length.unsqueeze(1) \
@@ -252,12 +252,20 @@ def collate_fn(batch):
     local_conditioning = len(batch[0]) >= 2 and hparams.cin_channels is not None
     global_conditioning = len(batch[0]) >= 3 and hparams.gin_channels is not None
 
+    # To save GPU memory... I don't want to do this though
+    if hparams.max_time_sec is not None:
+        max_time_steps = int(hparams.max_time_sec * hparams.sample_rate)
+    else:
+        max_time_steps = None
+
     # Time resolution adjastment
     if local_conditioning:
         new_batch = []
         for idx in range(len(batch)):
             x, c, g = batch[idx]
             x, c = audio.adjast_time_resolution(x, c)
+            if max_time_steps is not None:
+                x, c = x[:max_time_steps], c[:max_time_steps, :]
             new_batch.append((x, c, g))
         batch = new_batch
     else:
@@ -265,6 +273,8 @@ def collate_fn(batch):
         for idx in range(len(batch)):
             x, c, g = batch[idx]
             x = audio.trim(x)
+            if max_time_steps is not None:
+                x = x[:max_time_steps]
             new_batch.append((x, c, g))
         batch = new_batch
 
@@ -342,7 +352,7 @@ def eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir):
 
     # (C,)
     initial_input = np_utils.to_categorical(initial_value, num_classes=256).astype(np.float32)
-    initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
+    initial_input = Variable(torch.from_numpy(initial_input), volatile=True).view(1, 1, 256)
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
         initial_input, c=c, T=length, tqdm=tqdm, softmax=True, quantize=True)
