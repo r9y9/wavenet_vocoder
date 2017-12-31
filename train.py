@@ -433,7 +433,7 @@ def train(model, data_loader, optimizer, writer,
             optimizer.zero_grad()
 
             # Prepare data
-            x, y = Variable(x), Variable(y)
+            x, y = Variable(x), Variable(y, requires_grad=False)
             c = Variable(c) if c is not None else None
             g = Variable(g) if g is not None else None
             input_lengths = Variable(input_lengths)
