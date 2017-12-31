@@ -88,7 +88,10 @@ class WaveNet(nn.Module):
         B, _, T = x.size()
 
         if g is not None:
-            g = self.embed_speakers(g)
+            g = self.embed_speakers(g.view(B, -1))
+            assert g.dim() == 3
+            # (B x gin_channels, 1)
+            g = g.transpose(1, 2)
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         # Feed data to network
@@ -149,7 +152,13 @@ class WaveNet(nn.Module):
                 T = max(T, test_inputs.size(1))
 
         # Global conditioning
+        if g is not None:
+            g = self.embed_speakers(g.view(B, -1))
+            assert g.dim() == 3
+            # (B x gin_channels, 1)
+            g = g.transpose(1, 2)
         g_btc = _expand_global_features(B, T, g, bct=False)
+
         # Local
         if c is not None and c.size(-1) == T:
             c = c.transpose(1, 2).contiguous()

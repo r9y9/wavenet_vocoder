@@ -125,8 +125,9 @@ def test_local_conditioning_correctness():
 def test_global_conditioning_correctness():
     # condition by mean power
     x, x_org, c = _quantized_test_data(returns_power=True)
-    g = c.mean(axis=-1, keepdims=True)
-    model = WaveNet(layers=6, stacks=2, channels=64, gin_channels=1)
+    g = c.mean(axis=-1, keepdims=True).astype(np.int)
+    model = WaveNet(layers=6, stacks=2, channels=64, gin_channels=16,
+                    n_speakers=256)
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -158,8 +159,9 @@ def test_global_conditioning_correctness():
 @attr("local_and_global_conditioning")
 def test_global_and_local_conditioning_correctness():
     x, x_org, c = _quantized_test_data(returns_power=True)
-    g = c.mean(axis=-1, keepdims=True)
-    model = WaveNet(layers=6, stacks=2, channels=64, cin_channels=1, gin_channels=1)
+    g = c.mean(axis=-1, keepdims=True).astype(np.int)
+    model = WaveNet(layers=6, stacks=2, channels=64,
+                    cin_channels=1, gin_channels=16, n_speakers=256)
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x

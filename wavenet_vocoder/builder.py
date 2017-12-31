@@ -10,12 +10,14 @@ def wavenet(layers=12,
             gin_channels=None,
             dropout=1 - 0.95,
             kernel_size=3,
+            n_speakers=None,
             ):
     from wavenet_vocoder import WaveNet
 
     model = WaveNet(layers=layers, stacks=stacks,
                     channels=channels, dropout=dropout,
                     kernel_size=kernel_size,
-                    cin_channels=cin_channels, gin_channels=gin_channels)
+                    cin_channels=cin_channels, gin_channels=gin_channels,
+                    n_speakers=n_speakers)
 
     return model
