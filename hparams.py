@@ -18,13 +18,24 @@ hparams = tf.contrib.training.HParams(
 
     # Audio:
     sample_rate=16000,
+    silence_threshold=2,
+    num_mels=80,
+    fft_size=1024,
+    hop_size=256,
+    min_level_db=-100,
+    ref_level_db=20,
 
     # Model:
-    layers=18,
+    layers=12,
     stacks=2,
     channels=128,
     dropout=1 - 0.95,
     kernel_size=3,
+
+    # Local conditioning
+    cin_channels=80,
+    # Global conditioning
+    gin_channels=None,
 
     # Data loader
     pin_memory=True,
@@ -45,8 +56,8 @@ hparams = tf.contrib.training.HParams(
     clip_thresh=1.0,
 
     # Save
-    checkpoint_interval=10000,
-    eval_interval=10000,
+    checkpoint_interval=5000,
+    eval_interval=5000,
     save_optimizer_state=True,
 
     # Eval:
