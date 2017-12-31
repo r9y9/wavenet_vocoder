@@ -1,4 +1,4 @@
-The wavenet_pytorch package is licensed under the MIT "Expat" License:
+The wavenet_vocoder package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2017: Ryuichi Yamamoto.
 >
