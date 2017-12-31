@@ -498,6 +498,7 @@ def build_model():
         channels=hparams.channels,
         cin_channels=hparams.cin_channels,
         gin_channels=hparams.gin_channels,
+        n_speakers=hparams.n_speakers,
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size)
     return model
@@ -569,6 +570,8 @@ if __name__ == "__main__":
     if local_conditioning:
         Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id))
         assert len(X) == len(Mel)
+        print("Local conditioning enabled. Shape of a sample: {}.".format(
+            Mel[0].shape))
     else:
         Mel = None
     print(len(X))

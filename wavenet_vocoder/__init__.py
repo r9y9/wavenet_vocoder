@@ -11,6 +11,8 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
+from deepvoice3_pytorch.modules import Embedding
+
 from .modules import Conv1d1x1, Conv1dGLU
 
 
@@ -41,7 +43,7 @@ class WaveNet(nn.Module):
 
     def __init__(self, labels=256, channels=64, layers=12, stacks=2,
                  kernel_size=3, dropout=1 - 0.95,
-                 cin_channels=None, gin_channels=None):
+                 cin_channels=None, gin_channels=None, n_speakers=None):
         super(WaveNet, self).__init__()
         self.labels = labels
         assert layers % stacks == 0
@@ -65,6 +67,11 @@ class WaveNet(nn.Module):
             Conv1d1x1(C, labels),
         ])
 
+        if gin_channels is not None:
+            assert n_speakers is not None
+            self.embed_speakers = Embedding(
+                n_speakers, gin_channels, padding_idx=None, std=0.1)
+
     def forward(self, x, c=None, g=None, softmax=False):
         """Forward step
 
@@ -79,6 +86,9 @@ class WaveNet(nn.Module):
         """
         # Expand global conditioning features to all time steps
         B, _, T = x.size()
+
+        if g is not None:
+            g = self.embed_speakers(g)
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         # Feed data to network

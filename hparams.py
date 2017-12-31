@@ -32,10 +32,14 @@ hparams = tf.contrib.training.HParams(
     dropout=1 - 0.95,
     kernel_size=3,
 
-    # Local conditioning
+    # Local conditioning (None to disable)
     cin_channels=80,
-    # Global conditioning
-    gin_channels=None,
+
+    # Global conditioning (None to disable)
+    # currently limited for speaker embedding
+    # this should only be enabled for multi-speaker dataset
+    gin_channels=None,  # i.e., speaker embedding dim
+    n_speakers=7,  # 7 for CMU ARCTIC
 
     # Data loader
     pin_memory=True,
