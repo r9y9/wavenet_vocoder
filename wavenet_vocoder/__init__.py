@@ -43,7 +43,8 @@ class WaveNet(nn.Module):
 
     def __init__(self, labels=256, channels=64, layers=12, stacks=2,
                  kernel_size=3, dropout=1 - 0.95,
-                 cin_channels=None, gin_channels=None, n_speakers=None):
+                 cin_channels=None, gin_channels=None, n_speakers=None,
+                 weight_normalization=True):
         super(WaveNet, self).__init__()
         self.labels = labels
         assert layers % stacks == 0
@@ -58,13 +59,14 @@ class WaveNet(nn.Module):
                                  bias=True,  # magenda uses bias, but musyoku doesn't
                                  dilation=dilation, dropout=dropout,
                                  cin_channels=cin_channels,
-                                 gin_channels=gin_channels)
+                                 gin_channels=gin_channels,
+                                 weight_normalization=weight_normalization)
                 self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
-            Conv1d1x1(C, C),
+            Conv1d1x1(C, C, weight_normalization=weight_normalization),
             nn.ReLU(inplace=True),
-            Conv1d1x1(C, labels),
+            Conv1d1x1(C, labels, weight_normalization=weight_normalization),
         ])
 
         if gin_channels is not None:

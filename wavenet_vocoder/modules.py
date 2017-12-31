@@ -9,14 +9,19 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
-from deepvoice3_pytorch.modules import Conv1d
 
-
-def Conv1d1x1(in_channels, out_channels, bias=True):
+def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
     """1-by-1 convolution layer
     """
-    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                  dilation=1, bias=bias)
+    if weight_normalization:
+        from deepvoice3_pytorch.modules import Conv1d
+        assert bias
+        return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+                      dilation=1, bias=bias)
+    else:
+        from deepvoice3_pytorch.conv import Conv1d
+        return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+                      dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
@@ -36,7 +41,7 @@ class Conv1dGLU(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size,
                  cin_channels=None, gin_channels=None,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
-                 bias=True, *args, **kwargs):
+                 bias=True, weight_normalization=True, *args, **kwargs):
         super(Conv1dGLU, self).__init__()
         self.dropout = dropout
         if padding is None:
@@ -47,23 +52,37 @@ class Conv1dGLU(nn.Module):
                 padding = (kernel_size - 1) // 2 * dilation
         self.causal = causal
 
-        self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
-                           dropout=dropout, padding=padding, dilation=dilation,
-                           bias=bias, *args, **kwargs)
+        if weight_normalization:
+            from deepvoice3_pytorch.modules import Conv1d
+            assert bias
+            self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
+                               dropout=dropout, padding=padding, dilation=dilation,
+                               bias=bias, *args, **kwargs)
+        else:
+            from deepvoice3_pytorch.conv import Conv1d
+            self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
+                               padding=padding, dilation=dilation,
+                               bias=bias, *args, **kwargs)
+
         # local conditioning
         if cin_channels is not None:
-            self.conv1x1c = Conv1d1x1(cin_channels, 2 * out_channels, bias=bias)
+            self.conv1x1c = Conv1d1x1(cin_channels, 2 * out_channels,
+                                      bias=bias,
+                                      weight_normalization=weight_normalization)
         else:
             self.conv1x1c = None
 
         # global conditioning
         if gin_channels is not None:
-            self.conv1x1g = Conv1d1x1(gin_channels, 2 * out_channels, bias=bias)
+            self.conv1x1g = Conv1d1x1(gin_channels, 2 * out_channels, bias=bias,
+                                      weight_normalization=weight_normalization)
         else:
             self.conv1x1g = None
 
-        self.conv1x1_out = Conv1d1x1(out_channels, out_channels, bias=bias)
-        self.conv1x1_skip = Conv1d1x1(out_channels, out_channels, bias=bias)
+        self.conv1x1_out = Conv1d1x1(out_channels, out_channels, bias=bias,
+                                     weight_normalization=weight_normalization)
+        self.conv1x1_skip = Conv1d1x1(out_channels, out_channels, bias=bias,
+                                      weight_normalization=weight_normalization)
 
     def forward(self, x, c=None, g=None):
         return self._forward(x, c, g, False)

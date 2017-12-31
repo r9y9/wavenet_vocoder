@@ -31,6 +31,8 @@ hparams = tf.contrib.training.HParams(
     channels=128,
     dropout=1 - 0.95,
     kernel_size=3,
+    # If True, apply weight normalization as same as DeepVoice3
+    weight_normalization=True,
 
     # Local conditioning (None to disable)
     cin_channels=80,

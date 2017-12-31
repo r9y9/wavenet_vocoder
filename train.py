@@ -508,6 +508,7 @@ def build_model():
         channels=hparams.channels,
         cin_channels=hparams.cin_channels,
         gin_channels=hparams.gin_channels,
+        weight_normalization=hparams.weight_normalization,
         n_speakers=hparams.n_speakers,
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size)

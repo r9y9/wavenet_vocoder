@@ -275,7 +275,7 @@ def test_incremental_forward_correctness():
     librosa.display.waveplot(y_inference, sr=sr)
     plt.show()
 
-    save_audio = True
+    save_audio = False
     if save_audio:
         librosa.output.write_wav("target.wav", x_org, sr=sr)
         librosa.output.write_wav("online.wav", y_online, sr=sr)
