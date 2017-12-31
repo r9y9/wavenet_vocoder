@@ -18,7 +18,7 @@ def _expand_global_features(B, T, g):
     """Expand global conditioning features to all time steps
 
     Args:
-        g (Variable): Global features
+        g (Variable): Global features, (B x C) or (B x C x 1).
 
     Returns:
         Variable: B x C x T

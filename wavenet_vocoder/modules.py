@@ -15,10 +15,13 @@ from deepvoice3_pytorch.modules import Conv1d
 def Conv1d1x1(in_channels, out_channels, bias=True):
     """1-by-1 convolution layer
     """
-    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0, dilation=1, bias=True)
+    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+                  dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
+    """Conv1x1 forward
+    """
     if is_incremental:
         x = conv.incremental_forward(x)
     else:
@@ -119,5 +122,7 @@ class Conv1dGLU(nn.Module):
         return x, s
 
     def clear_buffer(self):
-        for conv in [self.conv, self.conv1x1_out, self.conv1x1_skip]:
-            self.conv.clear_buffer()
+        for conv in [self.conv, self.conv1x1_out, self.conv1x1_skip,
+                     self.conv1x1c, self.conv1x1g]:
+            if conv is not None:
+                self.conv.clear_buffer()
