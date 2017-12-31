@@ -53,6 +53,8 @@ from keras.utils import np_utils
 from tensorboardX import SummaryWriter
 from matplotlib import cm
 from warnings import warn
+
+import audio
 from hparams import hparams, hparams_debug_string
 
 fs = hparams.sample_rate
@@ -62,8 +64,6 @@ global_epoch = 0
 use_cuda = torch.cuda.is_available()
 if use_cuda:
     cudnn.benchmark = False
-
-_frontend = None  # to be set later
 
 
 def _pad(seq, max_len, constant_values=0):
@@ -77,29 +77,56 @@ def _pad_2d(x, max_len, b_pad=0):
     return x
 
 
-def remove_almost_silence(quantized_signal, silence_threshold=2):
-    for start in range(quantized_signal.size):
-        if abs(quantized_signal[start] - 127) > silence_threshold:
-            break
-    for end in range(1, quantized_signal.size):
-        if abs(quantized_signal[-end] - 127) > silence_threshold:
-            break
+class _NPYDataSource(FileDataSource):
+    def __init__(self, data_root, col, speaker_id=None):
+        self.data_root = data_root
+        self.col = col
+        self.lengths = []
+        self.speaker_id = speaker_id
+        self.multi_speaker = False
+        self.speaker_ids = None
 
-    quantized_signal = quantized_signal[start:-end]
-    return quantized_signal
+    def collect_files(self):
+        meta = join(self.data_root, "train.txt")
+        with open(meta, "rb") as f:
+            lines = f.readlines()
+        l = lines[0].decode("utf-8").split("|")
+        assert len(l) == 4 or len(l) == 5
+        self.multi_speaker = len(l) == 5
+        self.lengths = list(
+            map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
 
+        paths = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
+        paths = list(map(lambda f: join(self.data_root, f), paths))
 
-class CMUArcticWavDataSource(cmu_arctic.WavFileDataSource):
-    def __init__(self, data_root, speakers=["clb"]):
-        super(CMUArcticWavDataSource, self).__init__(data_root, speakers)
+        if self.multi_speaker:
+            speaker_ids = list(map(lambda l: int(l.decode("utf-8").split("|")[-1]), lines))
+            self.speaker_ids = speaker_ids
+            if self.speaker_id is not None:
+                # Filter by speaker_id
+                # using multi-speaker dataset as a single speaker dataset
+                indices = np.array(speaker_ids) == self.speaker_id
+                paths = list(np.array(paths)[indices])
+                self.lengths = list(np.array(self.lengths)[indices])
+                # aha, need to cast numpy.int64 to int
+                self.lengths = list(map(int, self.lengths))
+                self.multi_speaker = False
+                return paths
+
+        return paths
 
     def collect_features(self, path):
-        x, _ = librosa.load(path, sr=hparams.sample_rate)
-        x, _ = librosa.effects.trim(x, top_db=15)
-        # (T,)
-        x = P.mulaw_quantize(x)
+        return np.load(path)
 
-        return remove_almost_silence(x)
+
+class RawAudioDataSource(_NPYDataSource):
+    def __init__(self, data_root, speaker_id=None):
+        super(RawAudioDataSource, self).__init__(data_root, 0, speaker_id)
+
+
+class MelSpecDataSource(_NPYDataSource):
+    def __init__(self, data_root, speaker_id=None):
+        super(MelSpecDataSource, self).__init__(data_root, 1, speaker_id)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -149,13 +176,27 @@ class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
         return len(self.sorted_indices)
 
 
-# TODO
 class PyTorchDataset(object):
-    def __init__(self, X):
+    def __init__(self, X, Mel):
         self.X = X
+        self.Mel = Mel
+        # alias
+        self.multi_speaker = X.file_data_source.multi_speaker
 
     def __getitem__(self, idx):
-        return self.X[idx],
+        if self.Mel is None:
+            mel = None
+        else:
+            mel = self.Mel[idx]
+
+        raw_audio = self.X[idx]
+        if self.multi_speaker:
+            speaker_id = self.X.file_data_source.speaker_ids[idx]
+        else:
+            speaker_id = None
+
+        # (x,c,g)
+        return raw_audio, mel, speaker_id
 
     def __len__(self):
         return len(self.X)
@@ -198,13 +239,35 @@ def collate_fn(batch):
     """Create batch
 
     Args:
-        batch(tuple): Tuple of inputs
+        batch(tuple): List of tuples
             - x[0] (ndarray,int) : list of (T,)
+            - x[1] (ndarray,int) : list of (T, D)
+            - x[2] (ndarray,int) : list of (D,)
     Returns:
         tuple: Tuple of batch
             - x (FloatTensor) : Network inputs (B, C, T)
             - y (LongTensor)  : Network targets (B, T, 1)
     """
+
+    local_conditioning = len(batch[0]) >= 2 and hparams.cin_channels is not None
+    global_conditioning = len(batch[0]) >= 3 and hparams.gin_channels is not None
+
+    # Time resolution adjastment
+    if local_conditioning:
+        new_batch = []
+        for idx in range(len(batch)):
+            x, c, g = batch[idx]
+            x, c = audio.adjast_time_resolution(x, c)
+            new_batch.append((x, c, g))
+        batch = new_batch
+    else:
+        new_batch = []
+        for idx in range(len(batch)):
+            x, c, g = batch[idx]
+            x = audio.trim(x)
+            new_batch.append((x, c, g))
+        batch = new_batch
+
     # Lengths
     input_lengths = [len(x[0]) for x in batch]
     max_input_len = max(input_lengths)
@@ -219,6 +282,20 @@ def collate_fn(batch):
     y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
     assert len(y_batch.shape) == 2
 
+    # (B, T, D)
+    if local_conditioning:
+        c_batch = np.array([_pad_2d(x[1], max_input_len) for x in batch], dtype=np.float32)
+        assert len(c_batch.shape) == 3
+        # (B x C x T)
+        c_batch = torch.FloatTensor(c_batch).transpose(1, 2).contiguous()
+    else:
+        c_batch = None
+
+    if global_conditioning:
+        g_batch = torch.LongTensor([x[2] for x in batch])
+    else:
+        g_batch = None
+
     # Covnert to channel first i.e., (B, C, T)
     x_batch = torch.FloatTensor(x_batch).transpose(1, 2).contiguous()
     # Add extra axis
@@ -226,7 +303,7 @@ def collate_fn(batch):
 
     input_lengths = torch.LongTensor(input_lengths)
 
-    return x_batch, y_batch, input_lengths
+    return x_batch, y_batch, c_batch, g_batch, input_lengths
 
 
 def time_string():
@@ -246,7 +323,7 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
+def eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir):
     print("Eval model at step {}".format(global_step))
     model.eval()
     idx = np.random.randint(0, len(y))
@@ -254,6 +331,11 @@ def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
 
     # (T,)
     y_target = y[idx].view(-1).data.cpu().long().numpy()[:length]
+
+    if c is not None:
+        c = c[idx, :, :length].unsqueeze(0)
+        assert c.dim() == 3
+        print("Shape of Local conditioning features: {}".format(c.size()))
 
     initial_value = y_target[0]
     print("Intial value:", initial_value)
@@ -263,7 +345,7 @@ def eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir):
     initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
-        initial_input, T=length, tqdm=tqdm, softmax=True, quantize=True)
+        initial_input, c=c, T=length, tqdm=tqdm, softmax=True, quantize=True)
     y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
     y_hat = P.inv_mulaw_quantize(y_hat)
 
@@ -325,9 +407,11 @@ def train(model, data_loader, optimizer, writer,
     global global_step, global_epoch
     while global_epoch < nepochs:
         running_loss = 0.
-        for step, (x, y, input_lengths) in tqdm(enumerate(data_loader)):
+        for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
             # x : (B, C, T)
             # y : (B, T, 1)
+            # c : (B, C, T)
+            # g : (B,)
             model.train()
             # Learning rate schedule
             if hparams.lr_schedule is not None:
@@ -340,10 +424,14 @@ def train(model, data_loader, optimizer, writer,
 
             # Prepare data
             x, y = Variable(x), Variable(y)
+            c = Variable(c) if c is not None else None
+            g = Variable(g) if g is not None else None
             input_lengths = Variable(input_lengths)
             if use_cuda:
                 x, y = x.cuda(), y.cuda()
                 input_lengths = input_lengths.cuda()
+                c = c.cuda() if c is not None else None
+                g = g.cuda() if g is not None else None
 
             # (B, T, 1)
             mask = sequence_mask(input_lengths, max_len=x.size(-1)).unsqueeze(-1)
@@ -351,7 +439,7 @@ def train(model, data_loader, optimizer, writer,
 
             # Apply model
             # NOTE: softmax is handled in F.cross_entrypy_lsos
-            y_hat = model(x, softmax=False)
+            y_hat = model(x, c=c, softmax=False)
 
             # wee need 4d inputs for spatial cross entropy loss
             # (B, C, T, 1)
@@ -366,7 +454,7 @@ def train(model, data_loader, optimizer, writer,
                     model, optimizer, global_step, checkpoint_dir, global_epoch)
 
             if global_step > 0 and global_step % hparams.eval_interval == 0:
-                eval_model(global_step, writer, model, y, input_lengths, checkpoint_dir)
+                eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir)
 
             # Update
             loss.backward()
@@ -408,6 +496,8 @@ def build_model():
         layers=hparams.layers,
         stacks=hparams.stacks,
         channels=hparams.channels,
+        cin_channels=hparams.cin_channels,
+        gin_channels=hparams.gin_channels,
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size)
     return model
@@ -447,6 +537,8 @@ if __name__ == "__main__":
     checkpoint_dir = args["--checkpoint-dir"]
     checkpoint_path = args["--checkpoint"]
     checkpoint_restore_parts = args["--restore-parts"]
+    speaker_id = args["--speaker-id"]
+    speaker_id = int(speaker_id) if speaker_id is not None else None
 
     data_root = args["--data-root"]
     if data_root is None:
@@ -460,6 +552,8 @@ if __name__ == "__main__":
     print(hparams_debug_string())
     assert hparams.name == "wavenet_vocoder"
 
+    local_conditioning = hparams.cin_channels is not None
+
     # Presets
     if hparams.preset is not None and hparams.preset != "":
         preset = hparams.presets[hparams.preset]
@@ -471,21 +565,22 @@ if __name__ == "__main__":
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     # Input dataset definitions
-    X = FileSourceDataset(CMUArcticWavDataSource(data_root))
+    X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id))
+    if local_conditioning:
+        Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id))
+        assert len(X) == len(Mel)
+    else:
+        Mel = None
     print(len(X))
 
-    # TODO: better way
-    lengths = []
-    for i in tqdm(range(len(X))):
-        lengths.append(X[i].shape[0])
-    lengths = np.array(lengths)
+    lengths = np.array(X.file_data_source.lengths)
 
     # Prepare sampler
     sampler = PartialyRandomizedSimilarTimeLengthSampler(
         lengths, batch_size=hparams.batch_size)
 
     # Dataset and Dataloader setup
-    dataset = PyTorchDataset(X)
+    dataset = PyTorchDataset(X, Mel)
     data_loader = data_utils.DataLoader(
         dataset, batch_size=hparams.batch_size,
         num_workers=hparams.num_workers, sampler=sampler,
