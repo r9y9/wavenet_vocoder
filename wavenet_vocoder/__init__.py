@@ -96,7 +96,12 @@ class WaveNet(nn.Module):
         skips = None
         for f in self.conv_layers:
             x, h = f(x, c, g_bct)
-            skips = h if skips is None else (skips + h) * math.sqrt(0.5)
+            if skips is None:
+                skips = h
+            else:
+                skips += h
+                skips *= math.sqrt(0.5)
+            # skips = h if skips is None else (skips + h) * math.sqrt(0.5)
 
         x = skips
         for f in self.last_conv_layers:
