@@ -14,11 +14,12 @@ from torch.nn import functional as F
 from .modules import Conv1d1x1, Conv1dGLU
 
 
-def _expand_global_features(B, T, g):
+def _expand_global_features(B, T, g, bct=True):
     """Expand global conditioning features to all time steps
 
     Args:
         g (Variable): Global features, (B x C) or (B x C x 1).
+        bct (bool) : returns (B x C x T) if True, otherwise (B x T x C)
 
     Returns:
         Variable: B x C x T
@@ -26,8 +27,12 @@ def _expand_global_features(B, T, g):
     if g is None:
         return None
     g = g.unsqueeze(-1) if g.dim() == 2 else g
-    g_bct = g.expand(B, -1, T)
-    return g_bct.contiguous()
+    if bct:
+        g_bct = g.expand(B, -1, T)
+        return g_bct.contiguous()
+    else:
+        g_btc = g.expand(B, -1, T).transpose(1, 2)
+        return g_btc.contiguous()
 
 
 class WaveNet(nn.Module):
@@ -64,7 +69,7 @@ class WaveNet(nn.Module):
         """Forward step
 
         Args:
-            x (Variable): One-hot encoded audio signal, shape (B x labels x T)
+            x (Variable): One-hot encoded audio signal, shape (B x C x T)
             c (Variable): Local conditioning features, shape (B x C' x T)
             g (Variable): Global conditioning features, shape (B x C'')
             softmax (bool): Whether applies softmax or not.
@@ -74,7 +79,7 @@ class WaveNet(nn.Module):
         """
         # Expand global conditioning features to all time steps
         B, _, T = x.size()
-        g_bct = _expand_global_features(B, T, g)
+        g_bct = _expand_global_features(B, T, g, bct=True)
 
         # Feed data to network
         x = self.first_conv(x)
@@ -96,8 +101,12 @@ class WaveNet(nn.Module):
                             tqdm=lambda x: x, softmax=True, quantize=True):
         """Incremental forward
 
+        Due to linearized convolutions, inputs of shape (B x C x T) are reshaped
+        to (B x T x C) internally and fed to the network for each time step.
+        Input of each time step will be of shape (B x 1 x C).
+
         Args:
-            initial_input (Variable): Initial decoder input, (B x 1 x C)
+            initial_input (Variable): Initial decoder input, (B x C x 1)
             c (Variable): Local conditioning features, shape (B x C' x T)
             g (Variable): Global conditioning features, shape (B x C'' or B x C''x 1)
             T (int): Number of time steps to generate.
@@ -113,8 +122,8 @@ class WaveNet(nn.Module):
         self.clear_buffer()
         B = 1
 
-        # Note: shape should be (B x T x C), not (B x C x T) opposed to batch forward
-        # due to linealized convolution
+        # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
+        # batch forward due to linealized convolution
         if test_inputs is not None:
             if test_inputs.size(1) == self.labels:
                 test_inputs = test_inputs.transpose(1, 2).contiguous()
@@ -125,15 +134,22 @@ class WaveNet(nn.Module):
                 T = max(T, test_inputs.size(1))
 
         # Global conditioning
-        g_bct = _expand_global_features(B, T, g)
+        g_btc = _expand_global_features(B, T, g, bct=False)
+        # Local
+        if c is not None and c.size(-1) == T:
+            c = c.transpose(1, 2).contiguous()
 
         outputs = []
         if initial_input is None:
             initial_input = Variable(torch.zeros(B, 1, self.labels))
-            initial_input[:, :, 127] = 1
+            initial_input[:, :, 127] = 1  # TODO: is this ok?
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
+        else:
+            if initial_input.size(1) == self.labels:
+                initial_input = initial_input.transpose(1, 2).contiguous()
+
         current_input = initial_input
         for t in tqdm(range(T)):
             if test_inputs is not None and t < test_inputs.size(1):
@@ -143,8 +159,8 @@ class WaveNet(nn.Module):
                     current_input = outputs[-1]
 
             # Conditioning features for single time step
-            ct = None if c is None else c[:, :, t]
-            gt = None if g is None else g_bct[:, :, t]
+            ct = None if c is None else c[:, t, :].unsqueeze(1)
+            gt = None if g is None else g_btc[:, t, :].unsqueeze(1)
 
             x = current_input
             x = self.first_conv.incremental_forward(x)
