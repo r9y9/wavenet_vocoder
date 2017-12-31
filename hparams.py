@@ -62,7 +62,7 @@ hparams = tf.contrib.training.HParams(
     clip_thresh=10.0,
     # If None, longer samples thean max_time_sec will be trimmed
     # This is needed for those who don't have huge GPU memory...
-    max_time_sec=5.0,
+    max_time_sec=4.0,
 
     # Save
     checkpoint_interval=5000,
