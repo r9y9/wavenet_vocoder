@@ -3,9 +3,10 @@ import torch
 from torch import nn
 
 
-def wavenet(layers=12,
+def wavenet(layers=20,
             stacks=2,
-            channels=64,
+            channels=256,
+            skip_out_channels=512,
             cin_channels=None,
             gin_channels=None,
             weight_normalization=True,
@@ -17,6 +18,7 @@ def wavenet(layers=12,
 
     model = WaveNet(layers=layers, stacks=stacks,
                     channels=channels, dropout=dropout,
+                    skip_out_channels=skip_out_channels,
                     kernel_size=kernel_size,
                     weight_normalization=weight_normalization,
                     cin_channels=cin_channels, gin_channels=gin_channels,

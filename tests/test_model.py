@@ -46,7 +46,7 @@ def test_conv_block():
 
 
 def test_wavenet():
-    model = WaveNet()
+    model = WaveNet(layers=6, stacks=2, channels=32, kernel_size=2)
     x = Variable(torch.zeros(16, 256, 1000))
     y = model(x)
     print(y.size())

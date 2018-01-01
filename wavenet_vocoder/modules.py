@@ -39,11 +39,14 @@ class Conv1dGLU(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_size,
+                 skip_out_channels=None,
                  cin_channels=None, gin_channels=None,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
                  bias=True, weight_normalization=True, *args, **kwargs):
         super(Conv1dGLU, self).__init__()
         self.dropout = dropout
+        if skip_out_channels is None:
+            skip_out_channels = out_channels
         if padding is None:
             # no future time stamps available
             if causal:
@@ -81,7 +84,7 @@ class Conv1dGLU(nn.Module):
 
         self.conv1x1_out = Conv1d1x1(out_channels, out_channels, bias=bias,
                                      weight_normalization=weight_normalization)
-        self.conv1x1_skip = Conv1d1x1(out_channels, out_channels, bias=bias,
+        self.conv1x1_skip = Conv1d1x1(out_channels, skip_out_channels, bias=bias,
                                       weight_normalization=weight_normalization)
 
     def forward(self, x, c=None, g=None):

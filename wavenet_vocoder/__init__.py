@@ -62,8 +62,9 @@ class WaveNet(nn.Module):
     """WaveNet
     """
 
-    def __init__(self, labels=256, channels=64, layers=12, stacks=2,
+    def __init__(self, labels=256, channels=256, layers=20, stacks=2,
                  kernel_size=3, dropout=1 - 0.95,
+                 skip_out_channels=512,
                  cin_channels=None, gin_channels=None, n_speakers=None,
                  weight_normalization=True):
         super(WaveNet, self).__init__()
@@ -73,21 +74,23 @@ class WaveNet(nn.Module):
         C = channels
         self.first_conv = Conv1d1x1(labels, C)
         self.conv_layers = nn.ModuleList()
-        for stack in range(stacks):
-            for layer in range(layers_per_stack):
-                dilation = 2**layer
-                conv = Conv1dGLU(C, C, kernel_size=kernel_size,
-                                 bias=True,  # magenda uses bias, but musyoku doesn't
-                                 dilation=dilation, dropout=dropout,
-                                 cin_channels=cin_channels,
-                                 gin_channels=gin_channels,
-                                 weight_normalization=weight_normalization)
-                self.conv_layers.append(conv)
+        for layer in range(layers):
+            dilation = 2**(layer % layers_per_stack)
+            conv = Conv1dGLU(C, C, kernel_size=kernel_size,
+                             skip_out_channels=skip_out_channels,
+                             bias=True,  # magenda uses bias, but musyoku doesn't
+                             dilation=dilation, dropout=dropout,
+                             cin_channels=cin_channels,
+                             gin_channels=gin_channels,
+                             weight_normalization=weight_normalization)
+            self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
-            Conv1d1x1(C, C, weight_normalization=weight_normalization),
+            Conv1d1x1(skip_out_channels, skip_out_channels,
+                      weight_normalization=weight_normalization),
             nn.ReLU(inplace=True),
-            Conv1d1x1(C, labels, weight_normalization=weight_normalization),
+            Conv1d1x1(skip_out_channels, labels,
+                      weight_normalization=weight_normalization),
         ])
 
         if gin_channels is not None:

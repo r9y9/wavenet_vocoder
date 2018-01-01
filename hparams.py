@@ -26,9 +26,10 @@ hparams = tf.contrib.training.HParams(
     ref_level_db=20,
 
     # Model:
-    layers=18,
+    layers=20,
     stacks=2,
-    channels=128,
+    channels=256,
+    skip_out_channels=512,
     dropout=1 - 0.95,
     kernel_size=3,
     # If True, apply weight normalization as same as DeepVoice3
@@ -62,7 +63,7 @@ hparams = tf.contrib.training.HParams(
     clip_thresh=1.0,
     # If None, longer samples thean max_time_sec will be trimmed
     # This is needed for those who don't have huge GPU memory...
-    max_time_sec=4.0,
+    max_time_sec=2.0,
 
     # Save
     checkpoint_interval=5000,

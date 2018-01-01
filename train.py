@@ -508,6 +508,7 @@ def build_model():
         layers=hparams.layers,
         stacks=hparams.stacks,
         channels=hparams.channels,
+        skip_out_channels=hparams.skip_out_channels,
         cin_channels=hparams.cin_channels,
         gin_channels=hparams.gin_channels,
         weight_normalization=hparams.weight_normalization,
@@ -604,8 +605,13 @@ if __name__ == "__main__":
 
     # Model
     model = build_model()
+    print(model)
     if use_cuda:
         model = model.cuda()
+
+    receptive_field = model.receptive_field
+    print("Receptive field (samples / ms): {} / {}".format(
+        receptive_field, receptive_field / fs * 1000))
 
     optimizer = optim.Adam(model.parameters(),
                            lr=hparams.initial_learning_rate, betas=(
