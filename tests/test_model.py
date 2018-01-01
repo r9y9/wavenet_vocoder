@@ -6,7 +6,7 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 from nnmnkwii import preprocessing as P
-from nnmnkwii.util import example_audio_file
+from pysptk.util import example_audio_file
 import librosa
 import numpy as np
 from tqdm import tqdm

@@ -66,7 +66,7 @@ setup(name='wavenet_vocoder',
           ],
           "test": [
               "nose",
-              "pysptk",
+              "pysptk >= 0.1.9",
               "librosa",
               "matplotlib",
               "tqdm",
