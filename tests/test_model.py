@@ -197,6 +197,7 @@ def test_global_and_local_conditioning_correctness():
         warn("oops! must be a bug!")
 
 
+@attr("local_only")
 def test_incremental_forward_correctness():
     model = build_compact_model()
 

@@ -1,6 +1,5 @@
 # coding: utf-8
-import torch
-from torch import nn
+from __future__ import with_statement, print_function, absolute_import
 
 
 def wavenet(layers=20,
