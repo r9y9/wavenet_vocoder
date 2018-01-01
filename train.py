@@ -264,8 +264,9 @@ def collate_fn(batch):
         for idx in range(len(batch)):
             x, c, g = batch[idx]
             x, c = audio.adjast_time_resolution(x, c)
-            if max_time_steps is not None:
-                x, c = x[:max_time_steps], c[:max_time_steps, :]
+            if max_time_steps is not None and len(x) > max_time_steps:
+                s = np.random.randint(0, len(x) - max_time_steps)
+                x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
             new_batch.append((x, c, g))
         batch = new_batch
     else:
@@ -273,8 +274,9 @@ def collate_fn(batch):
         for idx in range(len(batch)):
             x, c, g = batch[idx]
             x = audio.trim(x)
-            if max_time_steps is not None:
-                x = x[:max_time_steps]
+            if max_time_steps is not None and len(x) > max_time_steps:
+                s = np.random.randint(0, len(x) - max_time_steps)
+                x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
             new_batch.append((x, c, g))
         batch = new_batch
 
