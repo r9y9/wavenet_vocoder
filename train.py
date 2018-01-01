@@ -34,15 +34,12 @@ import torch.backends.cudnn as cudnn
 from torch.utils import data as data_utils
 from torch.utils.data.sampler import Sampler
 import numpy as np
-from numba import jit
 
 from nnmnkwii import preprocessing as P
 from nnmnkwii.datasets import FileSourceDataset, FileDataSource
-from nnmnkwii.datasets import cmu_arctic
 
 from os.path import join, expanduser
 import random
-from scipy.io import wavfile
 import librosa.display
 from matplotlib import pyplot as plt
 import sys
