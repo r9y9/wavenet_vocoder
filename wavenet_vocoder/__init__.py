@@ -37,6 +37,27 @@ def _expand_global_features(B, T, g, bct=True):
         return g_btc.contiguous()
 
 
+def receptive_field_size(total_layers, num_cycles, kernel_size,
+                         dilation=lambda x: 2**x):
+    """Compute receptive field size
+
+    Args:
+        total_layers (int): total layers
+        num_cycles (int): cycles
+        kernel_size (int): kernel size
+        dilation (lambda): lambda to compute dilation factor. ``lambda x : 1``
+          to disable dilated convolution.
+
+    Returns:
+        int: receptive field size in sample
+
+    """
+    assert total_layers % num_cycles == 0
+    layers_per_cycle = total_layers // num_cycles
+    dilations = [dilation(i % layers_per_cycle) for i in range(total_layers)]
+    return (kernel_size - 1) * sum(dilations) + 1
+
+
 class WaveNet(nn.Module):
     """WaveNet
     """
@@ -73,6 +94,8 @@ class WaveNet(nn.Module):
             assert n_speakers is not None
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
+
+        self.receptive_field = receptive_field_size(layers, stacks, kernel_size)
 
     def forward(self, x, c=None, g=None, softmax=False):
         """Forward step
