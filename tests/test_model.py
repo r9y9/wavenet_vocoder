@@ -21,14 +21,16 @@ from os.path import join, dirname, exists
 
 from nose.plugins.attrib import attr
 
-import tensorflow as tf
-# tf.set_verbosity
-
 from keras.utils import np_utils
-from wavenet_vocoder import Conv1dGLU, WaveNet
+from wavenet_vocoder import ResidualConv1dGLU, WaveNet
 
-use_cuda = torch.cuda.is_available()
 use_cuda = False
+
+from functools import partial
+
+# For test
+build_compact_model = partial(WaveNet, layers=4, stacks=2, residual_channels=32,
+                              gate_channels=32, skip_out_channels=32)
 
 
 def _pad_2d(x, max_len, b_pad=0):
@@ -38,7 +40,7 @@ def _pad_2d(x, max_len, b_pad=0):
 
 
 def test_conv_block():
-    conv = Conv1dGLU(30, 30, kernel_size=3, dropout=1 - 0.95)
+    conv = ResidualConv1dGLU(30, 30, kernel_size=3, dropout=1 - 0.95)
     print(conv)
     x = Variable(torch.zeros(16, 30, 16000))
     y, h = conv(x)
@@ -46,7 +48,8 @@ def test_conv_block():
 
 
 def test_wavenet():
-    model = WaveNet(layers=6, stacks=2, channels=32, kernel_size=2)
+    model = build_compact_model()
+    print(model)
     x = Variable(torch.zeros(16, 256, 1000))
     y = model(x)
     print(y.size())
@@ -92,7 +95,7 @@ def _quantized_test_data(sr=4000, N=3000, returns_power=False):
 def test_local_conditioning_correctness():
     # condition by power
     x, x_org, c = _quantized_test_data(returns_power=True)
-    model = WaveNet(layers=6, stacks=2, channels=64, cin_channels=1)
+    model = build_compact_model(cin_channels=1)
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -126,8 +129,7 @@ def test_global_conditioning_correctness():
     # condition by mean power
     x, x_org, c = _quantized_test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
-    model = WaveNet(layers=6, stacks=2, channels=64, gin_channels=16,
-                    n_speakers=256)
+    model = build_compact_model(gin_channels=16, n_speakers=256)
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -160,8 +162,7 @@ def test_global_conditioning_correctness():
 def test_global_and_local_conditioning_correctness():
     x, x_org, c = _quantized_test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
-    model = WaveNet(layers=6, stacks=2, channels=64,
-                    cin_channels=1, gin_channels=16, n_speakers=256)
+    model = build_compact_model(cin_channels=1, gin_channels=16, n_speakers=256)
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -197,7 +198,7 @@ def test_global_and_local_conditioning_correctness():
 
 
 def test_incremental_forward_correctness():
-    model = WaveNet(layers=20, stacks=2, channels=128)
+    model = build_compact_model()
 
     checkpoint_path = join(dirname(__file__), "..", "foobar/checkpoint_step000058000.pth")
     if exists(checkpoint_path):
