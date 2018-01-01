@@ -34,19 +34,19 @@ def _conv1x1_forward(conv, x, is_incremental):
     return x
 
 
-class Conv1dGLU(nn.Module):
-    """(Dilated) Conv1d + Gated linear unit
+class ResidualConv1dGLU(nn.Module):
+    """Residual dilated conv1d + Gated linear unit
     """
 
-    def __init__(self, in_channels, out_channels, kernel_size,
+    def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
                  cin_channels=None, gin_channels=None,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
                  bias=True, weight_normalization=True, *args, **kwargs):
-        super(Conv1dGLU, self).__init__()
+        super(ResidualConv1dGLU, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
-            skip_out_channels = out_channels
+            skip_out_channels = residual_channels
         if padding is None:
             # no future time stamps available
             if causal:
@@ -58,18 +58,18 @@ class Conv1dGLU(nn.Module):
         if weight_normalization:
             from deepvoice3_pytorch.modules import Conv1d
             assert bias
-            self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
+            self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
                                dropout=dropout, padding=padding, dilation=dilation,
                                bias=bias, *args, **kwargs)
         else:
             from deepvoice3_pytorch.conv import Conv1d
-            self.conv = Conv1d(in_channels, 2 * out_channels, kernel_size,
+            self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
                                padding=padding, dilation=dilation,
                                bias=bias, *args, **kwargs)
 
         # local conditioning
         if cin_channels is not None:
-            self.conv1x1c = Conv1d1x1(cin_channels, 2 * out_channels,
+            self.conv1x1c = Conv1d1x1(cin_channels, gate_channels,
                                       bias=bias,
                                       weight_normalization=weight_normalization)
         else:
@@ -77,14 +77,16 @@ class Conv1dGLU(nn.Module):
 
         # global conditioning
         if gin_channels is not None:
-            self.conv1x1g = Conv1d1x1(gin_channels, 2 * out_channels, bias=bias,
+            self.conv1x1g = Conv1d1x1(gin_channels, gate_channels, bias=bias,
                                       weight_normalization=weight_normalization)
         else:
             self.conv1x1g = None
 
-        self.conv1x1_out = Conv1d1x1(out_channels, out_channels, bias=bias,
+        # conv output is split into two groups
+        gate_out_channels = gate_channels // 2
+        self.conv1x1_out = Conv1d1x1(gate_out_channels, residual_channels, bias=bias,
                                      weight_normalization=weight_normalization)
-        self.conv1x1_skip = Conv1d1x1(out_channels, skip_out_channels, bias=bias,
+        self.conv1x1_skip = Conv1d1x1(gate_out_channels, skip_out_channels, bias=bias,
                                       weight_normalization=weight_normalization)
 
     def forward(self, x, c=None, g=None):

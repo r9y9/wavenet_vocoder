@@ -28,8 +28,9 @@ hparams = tf.contrib.training.HParams(
     # Model:
     layers=20,
     stacks=2,
-    channels=256,
-    skip_out_channels=512,
+    residual_channels=512,
+    gate_channels=512,  # split into 2 gropus internally for gated activation
+    skip_out_channels=256,
     dropout=1 - 0.95,
     kernel_size=3,
     # If True, apply weight normalization as same as DeepVoice3

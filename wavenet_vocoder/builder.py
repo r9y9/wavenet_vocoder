@@ -5,7 +5,8 @@ from torch import nn
 
 def wavenet(layers=20,
             stacks=2,
-            channels=256,
+            residual_channels=512,
+            gate_channels=512,
             skip_out_channels=512,
             cin_channels=None,
             gin_channels=None,
@@ -17,9 +18,10 @@ def wavenet(layers=20,
     from wavenet_vocoder import WaveNet
 
     model = WaveNet(layers=layers, stacks=stacks,
-                    channels=channels, dropout=dropout,
+                    residual_channels=residual_channels,
+                    gate_channels=gate_channels,
                     skip_out_channels=skip_out_channels,
-                    kernel_size=kernel_size,
+                    kernel_size=kernel_size, dropout=dropout,
                     weight_normalization=weight_normalization,
                     cin_channels=cin_channels, gin_channels=gin_channels,
                     n_speakers=n_speakers)

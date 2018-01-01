@@ -13,7 +13,7 @@ from torch.nn import functional as F
 
 from deepvoice3_pytorch.modules import Embedding
 
-from .modules import Conv1d1x1, Conv1dGLU
+from .modules import Conv1d1x1, ResidualConv1dGLU
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -62,27 +62,30 @@ class WaveNet(nn.Module):
     """WaveNet
     """
 
-    def __init__(self, labels=256, channels=256, layers=20, stacks=2,
-                 kernel_size=3, dropout=1 - 0.95,
+    def __init__(self, labels=256, layers=20, stacks=2,
+                 residual_channels=512,
+                 gate_channels=512,
                  skip_out_channels=512,
+                 kernel_size=3, dropout=1 - 0.95,
                  cin_channels=None, gin_channels=None, n_speakers=None,
                  weight_normalization=True):
         super(WaveNet, self).__init__()
         self.labels = labels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-        C = channels
-        self.first_conv = Conv1d1x1(labels, C)
+        self.first_conv = Conv1d1x1(labels, residual_channels)
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
-            conv = Conv1dGLU(C, C, kernel_size=kernel_size,
-                             skip_out_channels=skip_out_channels,
-                             bias=True,  # magenda uses bias, but musyoku doesn't
-                             dilation=dilation, dropout=dropout,
-                             cin_channels=cin_channels,
-                             gin_channels=gin_channels,
-                             weight_normalization=weight_normalization)
+            conv = ResidualConv1dGLU(
+                residual_channels, gate_channels,
+                kernel_size=kernel_size,
+                skip_out_channels=skip_out_channels,
+                bias=True,  # magenda uses bias, but musyoku doesn't
+                dilation=dilation, dropout=dropout,
+                cin_channels=cin_channels,
+                gin_channels=gin_channels,
+                weight_normalization=weight_normalization)
             self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),

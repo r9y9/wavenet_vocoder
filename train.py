@@ -507,7 +507,8 @@ def build_model():
     model = getattr(builder, hparams.builder)(
         layers=hparams.layers,
         stacks=hparams.stacks,
-        channels=hparams.channels,
+        residual_channels=hparams.residual_channels,
+        gate_channels=hparams.gate_channels,
         skip_out_channels=hparams.skip_out_channels,
         cin_channels=hparams.cin_channels,
         gin_channels=hparams.gin_channels,
