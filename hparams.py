@@ -59,7 +59,7 @@ hparams = tf.contrib.training.HParams(
     lr_schedule_kwargs={},
     nepochs=2000,
     weight_decay=0.0,
-    clip_thresh=10.0,
+    clip_thresh=1.0,
     # If None, longer samples thean max_time_sec will be trimmed
     # This is needed for those who don't have huge GPU memory...
     max_time_sec=4.0,
