@@ -5,8 +5,8 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
-import pysptk
 from nnmnkwii import preprocessing as P
+from nnmnkwii.util import example_audio_file
 import librosa
 import numpy as np
 from tqdm import tqdm
@@ -68,7 +68,7 @@ def test_wavenet():
 
 
 def _quantized_test_data(sr=4000, N=3000, returns_power=False):
-    x, _ = librosa.load(pysptk.util.example_audio_file(), sr=sr)
+    x, _ = librosa.load(example_audio_file(), sr=sr)
     x, _ = librosa.effects.trim(x, top_db=15)
 
     # To save computational cost
