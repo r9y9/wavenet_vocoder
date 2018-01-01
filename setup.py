@@ -71,6 +71,5 @@ setup(name='wavenet_vocoder',
               "matplotlib",
               "tqdm",
               "nnmnkwii >= 0.0.11",
-              "keras",
           ],
       })

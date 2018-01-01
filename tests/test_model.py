@@ -8,35 +8,47 @@ from torch.nn import functional as F
 import pysptk
 from nnmnkwii import preprocessing as P
 import librosa
-import librosa.display
-from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
-
-# https://github.com/tensorflow/tensorflow/issues/8340
-import logging
-logging.getLogger('tensorflow').disabled = True
-
 from os.path import join, dirname, exists
-
+from functools import partial
 from nose.plugins.attrib import attr
 
-from keras.utils import np_utils
 from wavenet_vocoder import ResidualConv1dGLU, WaveNet
 
 use_cuda = False
-
-from functools import partial
 
 # For test
 build_compact_model = partial(WaveNet, layers=4, stacks=2, residual_channels=32,
                               gate_channels=32, skip_out_channels=32)
 
+# https://github.com/keras-team/keras/blob/master/keras/utils/np_utils.py
+# copied to avoid keras dependency in tests
 
-def _pad_2d(x, max_len, b_pad=0):
-    x = np.pad(x, [(b_pad, max_len - len(x) - b_pad), (0, 0)],
-               mode="constant", constant_values=0)
-    return x
+
+def to_categorical(y, num_classes=None):
+    """Converts a class vector (integers) to binary class matrix.
+    E.g. for use with categorical_crossentropy.
+    # Arguments
+        y: class vector to be converted into a matrix
+            (integers from 0 to num_classes).
+        num_classes: total number of classes.
+    # Returns
+        A binary matrix representation of the input.
+    """
+    y = np.array(y, dtype='int')
+    input_shape = y.shape
+    if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
+        input_shape = tuple(input_shape[:-1])
+    y = y.ravel()
+    if not num_classes:
+        num_classes = np.max(y) + 1
+    n = y.shape[0]
+    categorical = np.zeros((n, num_classes))
+    categorical[np.arange(n), y] = 1
+    output_shape = input_shape + (num_classes,)
+    categorical = np.reshape(categorical, output_shape)
+    return categorical
 
 
 def test_conv_block():
@@ -81,7 +93,7 @@ def _quantized_test_data(sr=4000, N=3000, returns_power=False):
     x_org = P.inv_mulaw_quantize(x)
 
     # (C, T)
-    x = np_utils.to_categorical(x, num_classes=256).T
+    x = to_categorical(x, num_classes=256).T
     # (1, C, T)
     x = x.reshape(1, 256, -1).astype(np.float32)
 
@@ -199,6 +211,9 @@ def test_global_and_local_conditioning_correctness():
 
 @attr("local_only")
 def test_incremental_forward_correctness():
+    import librosa.display
+    from matplotlib import pyplot as plt
+
     model = build_compact_model()
 
     checkpoint_path = join(dirname(__file__), "..", "foobar/checkpoint_step000058000.pth")
