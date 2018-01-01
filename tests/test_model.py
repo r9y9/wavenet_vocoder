@@ -14,7 +14,8 @@ from os.path import join, dirname, exists
 from functools import partial
 from nose.plugins.attrib import attr
 
-from wavenet_vocoder import ResidualConv1dGLU, WaveNet
+from wavenet_vocoder.modules import ResidualConv1dGLU
+from wavenet_vocoder import WaveNet
 
 use_cuda = False
 
