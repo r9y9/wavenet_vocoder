@@ -285,7 +285,6 @@ def collate_fn(batch):
                         c = c[s:s + max_time_frames, :]
                         assert_ready_for_upsampling(x, c)
             else:
-                assert False
                 x, c = audio.adjast_time_resolution(x, c)
                 if max_time_steps is not None and len(x) > max_time_steps:
                     s = np.random.randint(0, len(x) - max_time_steps)
