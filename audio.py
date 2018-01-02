@@ -69,9 +69,37 @@ def melspectrogram(y):
     return _normalize(S)
 
 
-def _lws_processor():
-    return lws.lws(hparams.fft_size, hparams.hop_size, mode="speech")
+def get_hop_size():
+    hop_size = hparams.hop_size
+    if hop_size is None:
+        assert hparams.frame_shift_ms is not None
+        hop_size = int(hparams.frame_shift_ms / 1000 * hparams.sample_rate)
+    return hop_size
 
+
+def _lws_processor():
+    return lws.lws(hparams.fft_size, get_hop_size(), mode="speech")
+
+
+def lws_num_frames(length, fsize, fshift):
+    """Compute number of time frames of lws spectrogram
+    """
+    pad = (fsize - fshift)
+    if length % fshift == 0:
+        M = (length + pad * 2 - fsize) // fshift + 1
+    else:
+        M = (length + pad * 2 - fsize) // fshift + 2
+    return M
+
+
+def lws_pad_lr(x, fsize, fshift):
+    """Compute left and right padding lws internally uses
+    """
+    M = lws_num_frames(len(x), fsize, fshift)
+    pad = (fsize - fshift)
+    T = len(x) + 2 * pad
+    r = (M - 1) * fshift + fsize - T
+    return pad, pad + r
 
 # Conversions:
 

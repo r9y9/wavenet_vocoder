@@ -69,12 +69,32 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
     else:
         wav, _ = librosa.effects.trim(wav, top_db=20)
 
-    # Compute a mel-scale spectrogram from the wav:
-    # (T, D)
-    mel_spectrogram = audio.melspectrogram(wav).astype(np.float32).T
-
     # Mu-law quantize
     quantized = P.mulaw_quantize(wav)
+
+    # Trim silences
+    start, end = audio.start_and_end_indices(quantized, hparams.silence_threshold)
+    quantized = quantized[start:end]
+    wav = wav[start:end]
+
+    # Compute a mel-scale spectrogram from the trimmed wav:
+    # (N, D)
+    mel_spectrogram = audio.melspectrogram(wav).astype(np.float32).T
+    # lws pads zeros internally before performing stft
+    # this is needed to adjast time resolution between audio and mel-spectrogram
+    l, r = audio.lws_pad_lr(wav, hparams.fft_size, audio.get_hop_size())
+
+    # zero pad for quantized signal
+    quantized = np.pad(quantized, (l, r), mode="constant",
+                       constant_values=P.mulaw_quantize(0))
+    N = mel_spectrogram.shape[0]
+    assert len(quantized) >= N * audio.get_hop_size()
+
+    # time resolution adjastment
+    # ensure length of raw audio is multiple of hop_size so that we can use
+    # transposed convolution to upsample
+    quantized = quantized[:N * audio.get_hop_size()]
+    assert len(quantized) % audio.get_hop_size() == 0
 
     timesteps = len(quantized)
 
