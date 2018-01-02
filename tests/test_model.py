@@ -137,6 +137,46 @@ def test_local_conditioning_correctness():
         warn("oops! must be a bug!")
 
 
+@attr("local_conditioning")
+def test_local_conditioning_upsample_correctness():
+    # condition by power
+    x, x_org, c = _quantized_test_data(returns_power=True)
+
+    # downsample by 4
+    assert c.shape[-1] % 4 == 0
+    c = c[:, :, 0::4]
+
+    model = build_compact_model(
+        cin_channels=1, upsample_conditional_features=True,
+        upsample_scales=[2, 2])
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    c = Variable(torch.from_numpy(c).contiguous())
+    c = c.cuda() if use_cuda else c
+    print(c.size())
+
+    model.eval()
+
+    y_offline = model(x, c=c, softmax=True)
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, c=c, T=None, tqdm=tqdm, softmax=True, quantize=False)
+
+    # (1 x C x T)
+    c = (y_offline - y_online).abs()
+    print(c.mean(), c.max())
+
+    try:
+        assert np.allclose(y_offline.cpu().data.numpy(),
+                           y_online.cpu().data.numpy(), atol=1e-4)
+    except:
+        from warnings import warn
+        warn("oops! must be a bug!")
+
+
 @attr("global_conditioning")
 def test_global_conditioning_correctness():
     # condition by mean power

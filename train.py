@@ -232,6 +232,19 @@ class MaskedCrossEntropyLoss(nn.Module):
         return ((losses * mask_).sum()) / mask_.sum()
 
 
+def ensure_divisible(length, divisible_by=256, lower=True):
+    if length % divisible_by == 0:
+        return length
+    if lower:
+        return length - length % divisible_by
+    else:
+        return length + (divisible_by - length % divisible_by)
+
+
+def assert_ready_for_upsampling(x, c):
+    assert len(x) % len(c) == 0 and len(x) // len(c) == audio.get_hop_size()
+
+
 def collate_fn(batch):
     """Create batch
 
@@ -260,10 +273,24 @@ def collate_fn(batch):
         new_batch = []
         for idx in range(len(batch)):
             x, c, g = batch[idx]
-            x, c = audio.adjast_time_resolution(x, c)
-            if max_time_steps is not None and len(x) > max_time_steps:
-                s = np.random.randint(0, len(x) - max_time_steps)
-                x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+            if hparams.upsample_conditional_features:
+                assert_ready_for_upsampling(x, c)
+                if max_time_steps is not None:
+                    max_steps = ensure_divisible(max_time_steps, audio.get_hop_size(), True)
+                    if len(x) > max_steps:
+                        max_time_frames = max_steps // audio.get_hop_size()
+                        s = np.random.randint(0, len(c) - max_time_frames)
+                        ts = s * audio.get_hop_size()
+                        x = x[ts:ts + audio.get_hop_size() * max_time_frames]
+                        c = c[s:s + max_time_frames, :]
+                        assert_ready_for_upsampling(x, c)
+            else:
+                assert False
+                x, c = audio.adjast_time_resolution(x, c)
+                if max_time_steps is not None and len(x) > max_time_steps:
+                    s = np.random.randint(0, len(x) - max_time_steps)
+                    x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                assert len(x) == len(c)
             new_batch.append((x, c, g))
         batch = new_batch
     else:
@@ -293,7 +320,8 @@ def collate_fn(batch):
 
     # (B, T, D)
     if local_conditioning:
-        c_batch = np.array([_pad_2d(x[1], max_input_len) for x in batch], dtype=np.float32)
+        max_len = max([len(x[1]) for x in batch])
+        c_batch = np.array([_pad_2d(x[1], max_len) for x in batch], dtype=np.float32)
         assert len(c_batch.shape) == 3
         # (B x C x T)
         c_batch = torch.FloatTensor(c_batch).transpose(1, 2).contiguous()
@@ -512,7 +540,9 @@ def build_model():
         weight_normalization=hparams.weight_normalization,
         n_speakers=hparams.n_speakers,
         dropout=hparams.dropout,
-        kernel_size=hparams.kernel_size)
+        kernel_size=hparams.kernel_size,
+        upsample_conditional_features=hparams.upsample_conditional_features,
+        upsample_scales=hparams.upsample_scales)
     return model
 
 

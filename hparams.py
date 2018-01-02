@@ -21,23 +21,30 @@ hparams = tf.contrib.training.HParams(
     silence_threshold=2,
     num_mels=80,
     fft_size=1024,
+    # shift can be specified by either hop_size or frame_shift_ms
     hop_size=256,
+    frame_shift_ms=None,
     min_level_db=-100,
     ref_level_db=20,
 
     # Model:
-    layers=20,
+    layers=16,
     stacks=2,
-    residual_channels=512,
+    residual_channels=256,
     gate_channels=512,  # split into 2 gropus internally for gated activation
     skip_out_channels=256,
-    dropout=1 - 0.95,
+    dropout=1 - 0.98,
     kernel_size=3,
     # If True, apply weight normalization as same as DeepVoice3
     weight_normalization=True,
 
     # Local conditioning (None to disable)
     cin_channels=80,
+    # If True, use transposed convolutions to upsample conditional features,
+    # otherwise repeat features to adjast time resolution
+    upsample_conditional_features=True,
+    # should np.prod(upsample_scales) == hop_size
+    upsample_scales=[16, 16],
 
     # Global conditioning (None to disable)
     # currently limited for speaker embedding
@@ -56,7 +63,7 @@ hparams = tf.contrib.training.HParams(
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
-    initial_learning_rate=1e-3,
+    initial_learning_rate=2e-3,
     lr_schedule="noam_learning_rate_decay",
     lr_schedule_kwargs={},
     nepochs=2000,

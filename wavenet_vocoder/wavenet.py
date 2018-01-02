@@ -9,7 +9,7 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
-from deepvoice3_pytorch.modules import Embedding
+from deepvoice3_pytorch.modules import Embedding, ConvTranspose1d
 
 from .modules import Conv1d1x1, ResidualConv1dGLU
 
@@ -66,7 +66,9 @@ class WaveNet(nn.Module):
                  skip_out_channels=512,
                  kernel_size=3, dropout=1 - 0.95,
                  cin_channels=None, gin_channels=None, n_speakers=None,
-                 weight_normalization=True):
+                 weight_normalization=True,
+                 upsample_conditional_features=False,
+                 upsample_scales=None):
         super(WaveNet, self).__init__()
         self.labels = labels
         assert layers % stacks == 0
@@ -99,6 +101,18 @@ class WaveNet(nn.Module):
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
 
+        # Upsample conv net
+        if upsample_conditional_features:
+            self.upsample_conv = nn.ModuleList()
+            for s in upsample_scales:
+                self.upsample_conv.append(ConvTranspose1d(
+                    cin_channels, cin_channels, kernel_size=s, padding=0,
+                    dilation=1, stride=s, std_mul=1.0))
+                # Is this non-lineality necessary?
+                self.upsample_conv.append(nn.ReLU(inplace=True))
+        else:
+            self.upsample_conv = None
+
         self.receptive_field = receptive_field_size(layers, stacks, kernel_size)
 
     def forward(self, x, c=None, g=None, softmax=False):
@@ -122,6 +136,11 @@ class WaveNet(nn.Module):
             # (B x gin_channels, 1)
             g = g.transpose(1, 2)
         g_bct = _expand_global_features(B, T, g, bct=True)
+
+        if self.upsample_conv is not None:
+            for f in self.upsample_conv:
+                c = f(c)
+            assert c.size(-1) == x.size(-1)
 
         # Feed data to network
         x = self.first_conv(x)
@@ -188,7 +207,12 @@ class WaveNet(nn.Module):
             g = g.transpose(1, 2)
         g_btc = _expand_global_features(B, T, g, bct=False)
 
-        # Local
+        # Local conditioning
+        if self.upsample_conv is not None:
+            assert c is not None
+            for f in self.upsample_conv:
+                c = f(c)
+            assert c.size(-1) == T
         if c is not None and c.size(-1) == T:
             c = c.transpose(1, 2).contiguous()
 

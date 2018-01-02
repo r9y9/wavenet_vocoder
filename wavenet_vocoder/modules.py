@@ -17,7 +17,7 @@ def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
         from deepvoice3_pytorch.modules import Conv1d
         assert bias
         return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                      dilation=1, bias=bias)
+                      dilation=1, bias=bias, std_mul=1.0)
     else:
         from deepvoice3_pytorch.conv import Conv1d
         return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
@@ -60,7 +60,7 @@ class ResidualConv1dGLU(nn.Module):
             assert bias
             self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
                                dropout=dropout, padding=padding, dilation=dilation,
-                               bias=bias, *args, **kwargs)
+                               bias=bias, std_mul=1.0, *args, **kwargs)
         else:
             from deepvoice3_pytorch.conv import Conv1d
             self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
