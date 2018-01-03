@@ -373,7 +373,8 @@ def eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir):
         assert c.dim() == 3
         print("Shape of Local conditioning features: {}".format(c.size()))
 
-    initial_value = y_target[0]
+    # Dummy silence
+    initial_value = P.mulaw_quantize(0)
     print("Intial value:", initial_value)
 
     # (C,)
