@@ -105,9 +105,12 @@ class WaveNet(nn.Module):
         if upsample_conditional_features:
             self.upsample_conv = nn.ModuleList()
             for s in upsample_scales:
-                self.upsample_conv.append(ConvTranspose1d(
+                convt = ConvTranspose1d(
                     cin_channels, cin_channels, kernel_size=s, padding=0,
-                    dilation=1, stride=s, std_mul=1.0))
+                    dilation=1, stride=s, std_mul=1.0)
+                convt.bias.data.zero_()
+                convt.weight.data.fill_(1 / cin_channels)
+                self.upsample_conv.append(convt)
                 # Is this non-lineality necessary?
                 self.upsample_conv.append(nn.ReLU(inplace=True))
         else:
@@ -277,3 +280,11 @@ class WaveNet(nn.Module):
                 f.clear_buffer()
             except AttributeError:
                 pass
+
+    def make_generation_fast_(self):
+        def remove_weight_norm(m):
+            try:
+                nn.utils.remove_weight_norm(m)
+            except ValueError:  # this module didn't have weight norm
+                return
+        self.apply(remove_weight_norm)
