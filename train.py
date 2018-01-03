@@ -389,7 +389,6 @@ def save_waveplot(path, y_hat, y_target):
 
 
 def eval_model(global_step, writer, model, y, c, input_lengths, eval_dir):
-    print("Eval model at step {}".format(global_step))
     model.eval()
     idx = np.random.randint(0, len(y))
     length = input_lengths[idx].data.cpu().numpy()[0]
@@ -459,7 +458,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     librosa.output.write_wav(path, y, sr=hparams.sample_rate)
 
 
-def __train_step(phase, epoch, step,
+def __train_step(phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
                  x, y, c, g, input_lengths,
                  checkpoint_dir, eval_dir=None, do_eval=False):
@@ -471,8 +470,10 @@ def __train_step(phase, epoch, step,
     clip_thresh = hparams.clip_thresh
     if train:
         model.train()
+        step = global_step
     else:
         model.eval()
+        step = global_test_step
 
     # Learning rate schedule
     current_lr = hparams.initial_learning_rate
@@ -514,7 +515,8 @@ def __train_step(phase, epoch, step,
         save_checkpoint(model, optimizer, step, checkpoint_dir, epoch)
 
     if do_eval:
-        eval_model(step, writer, model, y, c, input_lengths, eval_dir)
+        # NOTE: use train step (i.e., global_step) for filename
+        eval_model(global_step, writer, model, y, c, input_lengths, eval_dir)
 
     # Update
     if train:
@@ -546,8 +548,6 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             running_loss = 0.
             test_evaluated = False
             for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
-                current_step = global_step if train else global_test_step
-
                 # Whether to save eval (i.e., online decoding) result
                 do_eval = False
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
@@ -559,11 +559,12 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                     do_eval = True
                     test_evaluated = True
                 if do_eval:
+                    current_step = global_step if train else global_test_step
                     print("[{}] Eval at step {}".format(phase, current_step))
 
                 # Do step
                 running_loss += __train_step(
-                    phase, global_epoch, current_step, model,
+                    phase, global_epoch, global_step, global_test_step, model,
                     optimizer, writer, criterion, x, y, c, g, input_lengths,
                     checkpoint_dir, eval_dir, do_eval)
 
