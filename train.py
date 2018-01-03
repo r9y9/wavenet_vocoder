@@ -502,7 +502,7 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     # Apply model
     # NOTE: softmax is handled in F.cross_entrypy_loss
-    y_hat = model(x, c=c, softmax=False)
+    y_hat = model(x, c=c, g=g, softmax=False)
 
     # wee need 4d inputs for spatial cross entropy loss
     # (B, C, T, 1)
