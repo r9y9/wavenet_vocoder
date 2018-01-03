@@ -33,7 +33,7 @@ hparams = tf.contrib.training.HParams(
     residual_channels=256,
     gate_channels=512,  # split into 2 gropus internally for gated activation
     skip_out_channels=256,
-    dropout=1 - 0.98,
+    dropout=1 - 0.95,
     kernel_size=3,
     # If True, apply weight normalization as same as DeepVoice3
     weight_normalization=True,
@@ -42,7 +42,7 @@ hparams = tf.contrib.training.HParams(
     cin_channels=80,
     # If True, use transposed convolutions to upsample conditional features,
     # otherwise repeat features to adjast time resolution
-    upsample_conditional_features=True,
+    upsample_conditional_features=False,
     # should np.prod(upsample_scales) == hop_size
     upsample_scales=[16, 16],
 
