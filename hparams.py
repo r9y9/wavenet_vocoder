@@ -57,7 +57,9 @@ hparams = tf.contrib.training.HParams(
     num_workers=2,
 
     # train/test
-    test_size=0.05,
+    # test size can be specified as portion or num samples
+    test_size=None,
+    test_num_samples=50,
     random_state=1234,
 
     # Loss

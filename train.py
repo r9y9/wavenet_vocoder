@@ -77,7 +77,7 @@ def _pad_2d(x, max_len, b_pad=0):
 
 class _NPYDataSource(FileDataSource):
     def __init__(self, data_root, col, speaker_id=None,
-                 train=True, test_size=0.05, random_state=1234):
+                 train=True, test_size=0.05, test_num_samples=None, random_state=1234):
         self.data_root = data_root
         self.col = col
         self.lengths = []
@@ -86,12 +86,17 @@ class _NPYDataSource(FileDataSource):
         self.speaker_ids = None
         self.train = train
         self.test_size = test_size
+        self.test_num_samples = test_num_samples
         self.random_state = random_state
 
     def interest_indices(self, paths):
         indices = np.arange(len(paths))
+        if self.test_size is None:
+            test_size = self.test_num_samples / len(paths)
+        else:
+            test_size = self.test_size
         train_indices, test_indices = train_test_split(
-            indices, test_size=self.test_size, random_state=self.random_state)
+            indices, test_size=test_size, random_state=self.random_state)
         return train_indices if self.train else test_indices
 
     def collect_files(self):
@@ -680,11 +685,13 @@ if __name__ == "__main__":
         X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id=speaker_id,
                                                  train=train,
                                                  test_size=hparams.test_size,
+                                                 test_num_samples=hparams.test_num_samples,
                                                  random_state=hparams.random_state))
         if local_conditioning:
             Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id=speaker_id,
                                                       train=train,
                                                       test_size=hparams.test_size,
+                                                      test_num_samples=hparams.test_num_samples,
                                                       random_state=hparams.random_state))
             assert len(X) == len(Mel)
             print("Local conditioning enabled. Shape of a sample: {}.".format(
