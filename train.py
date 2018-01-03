@@ -45,7 +45,7 @@ from matplotlib import pyplot as plt
 import sys
 import os
 
-
+from sklearn.model_selection import train_test_split
 from keras.utils import np_utils
 from tensorboardX import SummaryWriter
 from matplotlib import cm
@@ -57,6 +57,7 @@ from hparams import hparams, hparams_debug_string
 fs = hparams.sample_rate
 
 global_step = 0
+global_test_step = 0
 global_epoch = 0
 use_cuda = torch.cuda.is_available()
 if use_cuda:
@@ -75,13 +76,23 @@ def _pad_2d(x, max_len, b_pad=0):
 
 
 class _NPYDataSource(FileDataSource):
-    def __init__(self, data_root, col, speaker_id=None):
+    def __init__(self, data_root, col, speaker_id=None,
+                 train=True, test_size=0.05, random_state=1234):
         self.data_root = data_root
         self.col = col
         self.lengths = []
         self.speaker_id = speaker_id
         self.multi_speaker = False
         self.speaker_ids = None
+        self.train = train
+        self.test_size = test_size
+        self.random_state = random_state
+
+    def interest_indices(self, paths):
+        indices = np.arange(len(paths))
+        train_indices, test_indices = train_test_split(
+            indices, test_size=self.test_size, random_state=self.random_state)
+        return train_indices if self.train else test_indices
 
     def collect_files(self):
         meta = join(self.data_root, "train.txt")
@@ -105,10 +116,23 @@ class _NPYDataSource(FileDataSource):
                 indices = np.array(speaker_ids) == self.speaker_id
                 paths = list(np.array(paths)[indices])
                 self.lengths = list(np.array(self.lengths)[indices])
+
+                # Filter by train/tset
+                indices = self.interest_indices(paths)
+                paths = list(np.array(paths)[indices])
+                self.lengths = list(np.array(self.lengths)[indices])
+
                 # aha, need to cast numpy.int64 to int
                 self.lengths = list(map(int, self.lengths))
                 self.multi_speaker = False
+
                 return paths
+
+        # Filter by train/test
+        indices = self.interest_indices(paths)
+        paths = list(np.array(paths)[indices])
+        self.lengths = list(np.array(self.lengths)[indices])
+        self.lengths = list(map(int, self.lengths))
 
         return paths
 
@@ -117,13 +141,13 @@ class _NPYDataSource(FileDataSource):
 
 
 class RawAudioDataSource(_NPYDataSource):
-    def __init__(self, data_root, speaker_id=None):
-        super(RawAudioDataSource, self).__init__(data_root, 0, speaker_id)
+    def __init__(self, data_root, **kwargs):
+        super(RawAudioDataSource, self).__init__(data_root, 0, **kwargs)
 
 
 class MelSpecDataSource(_NPYDataSource):
-    def __init__(self, data_root, speaker_id=None):
-        super(MelSpecDataSource, self).__init__(data_root, 1, speaker_id)
+    def __init__(self, data_root, **kwargs):
+        super(MelSpecDataSource, self).__init__(data_root, 1, **kwargs)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -359,7 +383,7 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir):
+def eval_model(global_step, writer, model, y, c, input_lengths, eval_dir):
     print("Eval model at step {}".format(global_step))
     model.eval()
     idx = np.random.randint(0, len(y))
@@ -389,15 +413,14 @@ def eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir):
     y_target = P.inv_mulaw_quantize(y_target)
 
     # Save audio
-    audio_dir = join(checkpoint_dir, "eval")
-    os.makedirs(audio_dir, exist_ok=True)
-    path = join(audio_dir, "step{:09d}_predicted.wav".format(global_step))
+    os.makedirs(eval_dir, exist_ok=True)
+    path = join(eval_dir, "step{:09d}_predicted.wav".format(global_step))
     librosa.output.write_wav(path, y_hat, sr=hparams.sample_rate)
-    path = join(audio_dir, "step{:09d}_target.wav".format(global_step))
+    path = join(eval_dir, "step{:09d}_target.wav".format(global_step))
     librosa.output.write_wav(path, y_target, sr=hparams.sample_rate)
 
     # save figure
-    path = join(audio_dir, "step{:09d}_waveplots.png".format(global_step))
+    path = join(eval_dir, "step{:09d}_waveplots.png".format(global_step))
     save_waveplot(path, y_hat, y_target)
 
 
@@ -431,86 +454,125 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     librosa.output.write_wav(path, y, sr=hparams.sample_rate)
 
 
-def train(model, data_loader, optimizer, writer,
-          init_lr=0.002,
-          checkpoint_dir=None, checkpoint_interval=None, nepochs=None,
-          clip_thresh=1.0):
+def __train_step(phase, epoch, step,
+                 model, optimizer, writer, criterion,
+                 x, y, c, g, input_lengths,
+                 checkpoint_dir, eval_dir=None, do_eval=False):
+    # x : (B, C, T)
+    # y : (B, T, 1)
+    # c : (B, C, T)
+    # g : (B,)
+    train = (phase == "train")
+    clip_thresh = hparams.clip_thresh
+    if train:
+        model.train()
+    else:
+        model.eval()
+
+    # Learning rate schedule
+    current_lr = hparams.initial_learning_rate
+    if train and hparams.lr_schedule is not None:
+        lr_schedule_f = getattr(lrschedule, hparams.lr_schedule)
+        current_lr = lr_schedule_f(
+            hparams.initial_learning_rate, step, **hparams.lr_schedule_kwargs)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = current_lr
+    optimizer.zero_grad()
+
+    # Prepare data
+    x, y = Variable(x), Variable(y, requires_grad=False)
+    c = Variable(c) if c is not None else None
+    g = Variable(g) if g is not None else None
+    input_lengths = Variable(input_lengths)
+    if use_cuda:
+        x, y = x.cuda(), y.cuda()
+        input_lengths = input_lengths.cuda()
+        c = c.cuda() if c is not None else None
+        g = g.cuda() if g is not None else None
+
+    # (B, T, 1)
+    mask = sequence_mask(input_lengths, max_len=x.size(-1)).unsqueeze(-1)
+    mask = mask[:, 1:, :]
+
+    # Apply model
+    # NOTE: softmax is handled in F.cross_entrypy_loss
+    y_hat = model(x, c=c, softmax=False)
+
+    # wee need 4d inputs for spatial cross entropy loss
+    # (B, C, T, 1)
+    y_hat = y_hat.unsqueeze(-1)
+
+    loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
+
+    if train and step > 0 and step % hparams.checkpoint_interval == 0:
+        save_states(step, writer, y_hat, y, input_lengths, checkpoint_dir)
+        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch)
+
+    if do_eval:
+        eval_model(step, writer, model, y, c, input_lengths, eval_dir)
+
+    # Update
+    if train:
+        loss.backward()
+        if clip_thresh > 0:
+            grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), clip_thresh)
+        optimizer.step()
+
+    # Logs
+    writer.add_scalar("{} loss".format(phase), float(loss.data[0]), step)
+    if train:
+        if clip_thresh > 0:
+            writer.add_scalar("gradient norm", grad_norm, step)
+        writer.add_scalar("learning rate", current_lr, step)
+
+    return loss.data[0]
+
+
+def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
     if use_cuda:
         model = model.cuda()
-    current_lr = init_lr
 
     criterion = MaskedCrossEntropyLoss()
 
-    global global_step, global_epoch
-    while global_epoch < nepochs:
-        running_loss = 0.
-        for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
-            # x : (B, C, T)
-            # y : (B, T, 1)
-            # c : (B, C, T)
-            # g : (B,)
-            model.train()
-            # Learning rate schedule
-            if hparams.lr_schedule is not None:
-                lr_schedule_f = getattr(lrschedule, hparams.lr_schedule)
-                current_lr = lr_schedule_f(
-                    init_lr, global_step, **hparams.lr_schedule_kwargs)
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = current_lr
-            optimizer.zero_grad()
+    global global_step, global_epoch, global_test_step
+    while global_epoch < hparams.nepochs:
+        for phase, data_loader in data_loaders.items():
+            train = (phase == "train")
+            running_loss = 0.
+            test_evaluated = False
+            for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
+                current_step = global_step if train else global_test_step
 
-            # Prepare data
-            x, y = Variable(x), Variable(y, requires_grad=False)
-            c = Variable(c) if c is not None else None
-            g = Variable(g) if g is not None else None
-            input_lengths = Variable(input_lengths)
-            if use_cuda:
-                x, y = x.cuda(), y.cuda()
-                input_lengths = input_lengths.cuda()
-                c = c.cuda() if c is not None else None
-                g = g.cuda() if g is not None else None
+                # Whether to save eval (i.e., online decoding) result
+                do_eval = False
+                eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
+                # Do eval per eval_interval for train
+                if train and global_step > 0 and global_step % hparams.eval_interval == 0:
+                    do_eval = True
+                # Do eval per epoch once for test
+                if not train and not test_evaluated:
+                    do_eval = True
+                    test_evaluated = True
+                if do_eval:
+                    print("[{}] Eval at step {}".format(phase, current_step))
 
-            # (B, T, 1)
-            mask = sequence_mask(input_lengths, max_len=x.size(-1)).unsqueeze(-1)
-            mask = mask[:, 1:, :]
+                # Do step
+                running_loss += __train_step(
+                    phase, global_epoch, current_step, model,
+                    optimizer, writer, criterion, x, y, c, g, input_lengths,
+                    checkpoint_dir, eval_dir, do_eval)
 
-            # Apply model
-            # NOTE: softmax is handled in F.cross_entrypy_lsos
-            y_hat = model(x, c=c, softmax=False)
+                # update global state
+                if train:
+                    global_step += 1
+                else:
+                    global_test_step += 1
 
-            # wee need 4d inputs for spatial cross entropy loss
-            # (B, C, T, 1)
-            y_hat = y_hat.unsqueeze(-1)
-
-            loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
-
-            if global_step > 0 and global_step % checkpoint_interval == 0:
-                save_states(
-                    global_step, writer, y_hat, y, input_lengths, checkpoint_dir)
-                save_checkpoint(
-                    model, optimizer, global_step, checkpoint_dir, global_epoch)
-
-            if global_step > 0 and global_step % hparams.eval_interval == 0:
-                eval_model(global_step, writer, model, y, c, input_lengths, checkpoint_dir)
-
-            # Update
-            loss.backward()
-            if clip_thresh > 0:
-                grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), clip_thresh)
-            optimizer.step()
-
-            # Logs
-            writer.add_scalar("loss", float(loss.data[0]), global_step)
-            if clip_thresh > 0:
-                writer.add_scalar("gradient norm", grad_norm, global_step)
-            writer.add_scalar("learning rate", current_lr, global_step)
-
-            global_step += 1
-            running_loss += loss.data[0]
-
-        averaged_loss = running_loss / (len(data_loader))
-        writer.add_scalar("loss (per epoch)", averaged_loss, global_epoch)
-        print("Loss: {}".format(running_loss / (len(data_loader))))
+            # log per epoch
+            averaged_loss = running_loss / len(data_loader)
+            writer.add_scalar("{} loss (per epoch)".format(phase),
+                              averaged_loss, global_epoch)
+            print("[{}] Loss: {}".format(phase, running_loss / len(data_loader)))
 
         global_epoch += 1
 
@@ -519,11 +581,13 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
     checkpoint_path = join(
         checkpoint_dir, "checkpoint_step{:09d}.pth".format(global_step))
     optimizer_state = optimizer.state_dict() if hparams.save_optimizer_state else None
+    global global_test_step
     torch.save({
         "state_dict": model.state_dict(),
         "optimizer": optimizer_state,
         "global_step": step,
         "global_epoch": epoch,
+        "global_test_step": global_test_step,
     }, checkpoint_path)
     print("Saved checkpoint:", checkpoint_path)
 
@@ -549,6 +613,7 @@ def build_model():
 def load_checkpoint(path, model, optimizer, reset_optimizer):
     global global_step
     global global_epoch
+    global global_test_step
 
     print("Load checkpoint from: {}".format(path))
     checkpoint = torch.load(path)
@@ -560,6 +625,7 @@ def load_checkpoint(path, model, optimizer, reset_optimizer):
             optimizer.load_state_dict(checkpoint["optimizer"])
     global_step = checkpoint["global_step"]
     global_epoch = checkpoint["global_epoch"]
+    global_test_step = checkpoint.get("global_test_step", 0)
 
     return model
 
@@ -607,29 +673,41 @@ if __name__ == "__main__":
 
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    # Input dataset definitions
-    X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id))
-    if local_conditioning:
-        Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id))
-        assert len(X) == len(Mel)
-        print("Local conditioning enabled. Shape of a sample: {}.".format(
-            Mel[0].shape))
-    else:
-        Mel = None
-    print(len(X))
-
-    lengths = np.array(X.file_data_source.lengths)
-
-    # Prepare sampler
-    sampler = PartialyRandomizedSimilarTimeLengthSampler(
-        lengths, batch_size=hparams.batch_size)
-
     # Dataset and Dataloader setup
-    dataset = PyTorchDataset(X, Mel)
-    data_loader = data_utils.DataLoader(
-        dataset, batch_size=hparams.batch_size,
-        num_workers=hparams.num_workers, sampler=sampler,
-        collate_fn=collate_fn, pin_memory=hparams.pin_memory)
+    data_loaders = {}
+    for phase in ["train", "test"]:
+        train = phase == "train"
+        X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id=speaker_id,
+                                                 train=train,
+                                                 test_size=hparams.test_size,
+                                                 random_state=hparams.random_state))
+        if local_conditioning:
+            Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id=speaker_id,
+                                                      train=train,
+                                                      test_size=hparams.test_size,
+                                                      random_state=hparams.random_state))
+            assert len(X) == len(Mel)
+            print("Local conditioning enabled. Shape of a sample: {}.".format(
+                Mel[0].shape))
+        else:
+            Mel = None
+        print("[{}]: length of the dataset is {}".format(phase, len(X)))
+
+        if train:
+            lengths = np.array(X.file_data_source.lengths)
+            # Prepare sampler
+            sampler = PartialyRandomizedSimilarTimeLengthSampler(
+                lengths, batch_size=hparams.batch_size)
+        else:
+            sampler = None
+
+        dataset = PyTorchDataset(X, Mel)
+        data_loader = data_utils.DataLoader(
+            dataset, batch_size=hparams.batch_size,
+            num_workers=hparams.num_workers, sampler=sampler,
+            collate_fn=collate_fn, pin_memory=hparams.pin_memory)
+
+        data_loaders[phase] = data_loader
 
     # Model
     model = build_model()
@@ -661,13 +739,7 @@ if __name__ == "__main__":
 
     # Train!
     try:
-        train(model, data_loader, optimizer, writer,
-              init_lr=hparams.initial_learning_rate,
-              checkpoint_dir=checkpoint_dir,
-              checkpoint_interval=hparams.checkpoint_interval,
-              nepochs=hparams.nepochs,
-              clip_thresh=hparams.clip_thresh,
-              )
+        train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=checkpoint_dir)
     except KeyboardInterrupt:
         save_checkpoint(
             model, optimizer, global_step, checkpoint_dir, global_epoch)

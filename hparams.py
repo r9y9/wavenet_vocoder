@@ -56,6 +56,10 @@ hparams = tf.contrib.training.HParams(
     pin_memory=True,
     num_workers=2,
 
+    # train/test
+    test_size=0.05,
+    random_state=1234,
+
     # Loss
 
     # Training:
