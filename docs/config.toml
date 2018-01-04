@@ -1,4 +1,4 @@
-# baseURL = "https://r9y9.github.io/wavenet_vocoder/"
+baseURL = "https://r9y9.github.io/wavenet_vocoder/"
 languageCode = "ja-jp"
 title = "An open source implementation of WaveNet vocoder"
 author = "Ryuichi YAMAMOTO"

@@ -3,9 +3,11 @@
 [![PyPI](https://img.shields.io/pypi/v/wavenet_vocoder.svg)](https://pypi.python.org/pypi/wavenet_vocoder)
 [![Build Status](https://travis-ci.org/r9y9/wavenet_vocoder.svg?branch=master)](https://travis-ci.org/r9y9/wavenet_vocoder)
 
-The goal of the repository is to provide an implementation of the WaveNet vocoder, which can generate high quality raw speech samples conditioned on linguistic or acoustic features (e.g., mel-spectrogram).
+The goal of the repository is to provide an implementation of the WaveNet vocoder, which can generate high quality raw speech samples conditioned on linguistic or acoustic features.
 
-See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
+Audio sampels are available at https://github.com/r9y9/wavenet_vocoder.
+
+This is still WIP. See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
 
 ## References
 
