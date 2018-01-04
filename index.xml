@@ -2,21 +2,21 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>An open source implementation of WaveNet vocoder</title>
-    <link>https://r9y9.github.io/</link>
+    <link>https://r9y9.github.io/wavenet_vocoder/</link>
     <description>Recent content on An open source implementation of WaveNet vocoder</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>ja-jp</language>
     <lastBuildDate>Thu, 04 Jan 2018 19:42:01 +0900</lastBuildDate>
     
-	<atom:link href="https://r9y9.github.io/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://r9y9.github.io/wavenet_vocoder/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>index</title>
-      <link>https://r9y9.github.io/index/</link>
+      <link>https://r9y9.github.io/wavenet_vocoder/index/</link>
       <pubDate>Thu, 04 Jan 2018 19:42:01 +0900</pubDate>
       
-      <guid>https://r9y9.github.io/index/</guid>
+      <guid>https://r9y9.github.io/wavenet_vocoder/index/</guid>
       <description>Github: https://github.com/r9y9/wavenet_vocoder  This page provides audio samples for the open source implementation of the WaveNet vocoder.
  WaveNet vocoder conditioned on mel-spectrogram (Not yet) WaveNet vocoder conditioned on mel-spectrogram and speaker embedding (Not yet) DeepVoice3 + WaveNet vocoder  WaveNet vocoder conditioned on mel-spectrogram    key value     Data CMU ARCTIC (clb) (1183 for training, 50 for testing)   Sampling frequency 16kHz   Local conditioning 80-dim mel-spectrogram   Global conditioning N/A   Total layers 16   Num cycles 2   Receptive field (samples / ms) 1021 / 63.</description>
     </item>
