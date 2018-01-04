@@ -96,7 +96,7 @@ class WaveNet(nn.Module):
                       weight_normalization=weight_normalization),
         ])
 
-        if gin_channels is not None:
+        if gin_channels > 0:
             assert n_speakers is not None
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
