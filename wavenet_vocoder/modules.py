@@ -40,7 +40,7 @@ class ResidualConv1dGLU(nn.Module):
 
     def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
-                 cin_channels=None, gin_channels=None,
+                 cin_channels=-1, gin_channels=-1,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
                  bias=True, weight_normalization=True, *args, **kwargs):
         super(ResidualConv1dGLU, self).__init__()
@@ -68,7 +68,7 @@ class ResidualConv1dGLU(nn.Module):
                                bias=bias, *args, **kwargs)
 
         # local conditioning
-        if cin_channels is not None:
+        if cin_channels > 0:
             self.conv1x1c = Conv1d1x1(cin_channels, gate_channels,
                                       bias=bias,
                                       weight_normalization=weight_normalization)
@@ -76,7 +76,7 @@ class ResidualConv1dGLU(nn.Module):
             self.conv1x1c = None
 
         # global conditioning
-        if gin_channels is not None:
+        if gin_channels > 0:
             self.conv1x1g = Conv1d1x1(gin_channels, gate_channels, bias=bias,
                                       weight_normalization=weight_normalization)
         else:

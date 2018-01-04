@@ -288,8 +288,8 @@ def collate_fn(batch):
             - y (LongTensor)  : Network targets (B, T, 1)
     """
 
-    local_conditioning = len(batch[0]) >= 2 and hparams.cin_channels is not None
-    global_conditioning = len(batch[0]) >= 3 and hparams.gin_channels is not None
+    local_conditioning = len(batch[0]) >= 2 and hparams.cin_channels > 0
+    global_conditioning = len(batch[0]) >= 3 and hparams.gin_channels > 0
 
     # To save GPU memory... I don't want to do this though
     if hparams.max_time_sec is not None:
@@ -567,8 +567,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                     do_eval = True
                     test_evaluated = True
                 if do_eval:
-                    current_step = global_step if train else global_test_step
-                    print("[{}] Eval at step {}".format(phase, current_step))
+                    print("[{}] Eval at train step {}".format(phase, global_step))
 
                 # Do step
                 running_loss += __train_step(
@@ -656,7 +655,7 @@ def restore_parts(path, model):
 
 def get_data_loaders(data_root, speaker_id, test_shuffle=True):
     data_loaders = {}
-    local_conditioning = hparams.cin_channels is not None
+    local_conditioning = hparams.cin_channels > 0
     for phase in ["train", "test"]:
         train = phase == "train"
         X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id=speaker_id,

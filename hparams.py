@@ -38,7 +38,7 @@ hparams = tf.contrib.training.HParams(
     # If True, apply weight normalization as same as DeepVoice3
     weight_normalization=True,
 
-    # Local conditioning (None to disable)
+    # Local conditioning (set negative value to disable))
     cin_channels=80,
     # If True, use transposed convolutions to upsample conditional features,
     # otherwise repeat features to adjust time resolution
@@ -46,10 +46,10 @@ hparams = tf.contrib.training.HParams(
     # should np.prod(upsample_scales) == hop_size
     upsample_scales=[16, 16],
 
-    # Global conditioning (None to disable)
+    # Global conditioning (set negative value to disable)
     # currently limited for speaker embedding
     # this should only be enabled for multi-speaker dataset
-    gin_channels=None,  # i.e., speaker embedding dim
+    gin_channels=4,  # i.e., speaker embedding dim
     n_speakers=7,  # 7 for CMU ARCTIC
 
     # Data loader
@@ -59,7 +59,7 @@ hparams = tf.contrib.training.HParams(
     # train/test
     # test size can be specified as portion or num samples
     test_size=None,
-    test_num_samples=50,
+    test_num_samples=50 * 7,
     random_state=1234,
 
     # Loss

@@ -76,20 +76,41 @@ if __name__ == "__main__":
     checkpoint_name = splitext(basename(checkpoint_path))[0]
 
     os.makedirs(dst_dir, exist_ok=True)
+    dst_dir_name = basename(os.path.normpath(dst_dir))
 
-    for idx, (x, c, g) in tqdm(enumerate(test_dataset)):
-        print("Target audio is {}".format(test_dataset.X.collected_files[idx][0]))
-        if c is not None:
-            print("Conditioned by {}".format(test_dataset.Mel.collected_files[idx][0]))
-        waveform = wavegen(model, length, c=c, g=g, initial_value=initial_value, fast=True)
+    for idx, (x, c, g) in enumerate(test_dataset):
+        target_audio_path = test_dataset.X.collected_files[idx][0]
+        if output_html:
+            def _tqdm(x): return x
+        else:
+            _tqdm = tqdm
+            print("Target audio is {}".format(target_audio_path))
+            if c is not None:
+                print("Conditioned by {}".format(test_dataset.Mel.collected_files[idx][0]))
+
+        # Paths
         dst_wav_path = join(dst_dir, "{}_{}{}_predicted.wav".format(
             idx, checkpoint_name, file_name_suffix))
         target_wav_path = join(dst_dir, "{}_{}{}_target.wav".format(
             idx, checkpoint_name, file_name_suffix))
+
+        # Generate
+        waveform = wavegen(model, length, c=c, g=g, initial_value=initial_value,
+                           fast=True, tqdm=_tqdm)
+
         # save
         librosa.output.write_wav(dst_wav_path, waveform, sr=hparams.sample_rate)
         librosa.output.write_wav(target_wav_path, P.inv_mulaw_quantize(x),
                                  sr=hparams.sample_rate)
+
+        # log
+        if output_html:
+            print("""
+<audio controls="controls" >
+<source src="/{}/audio/{}/{}" autoplay/>
+Your browser does not support the audio element.
+</audio>
+""".format(hparams.name, dst_dir_name, basename(dst_wav_path)))
 
     print("Finished! Check out {} for generated audio samples.".format(dst_dir))
     sys.exit(0)

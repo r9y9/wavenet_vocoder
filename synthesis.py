@@ -46,7 +46,8 @@ def _to_numpy(x):
     return x.numpy()
 
 
-def wavegen(model, length=None, c=None, g=None, initial_value=None, fast=False):
+def wavegen(model, length=None, c=None, g=None, initial_value=None,
+            fast=False, tqdm=tqdm):
     """Generate waveform samples by WaveNet.
 
     Args:
@@ -57,6 +58,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None, fast=False):
         g (scaler): Speaker ID
         initial_value (int) : initial_value for the WaveNet decoder.
         fast (Bool): Whether to remove weight normalization or not.
+        tqdm (lambda): tqdm
 
     Returns:
         numpy.ndarray : Generated waveform samples
@@ -86,7 +88,6 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None, fast=False):
 
     if initial_value is None:
         initial_value = P.mulaw_quantize(0)  # dummy silence
-    print("Initial value of the WaveNet decoder: {}".format(initial_value))
     assert initial_value >= 0 and initial_value < 256
 
     initial_input = np_utils.to_categorical(
