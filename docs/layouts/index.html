@@ -1,0 +1,7 @@
+{{ template "partials/header.html" . }}
+{{ range .Data.Pages }}
+    {{if eq .Type "index" }}
+        {{.Content}}
+    {{end}}
+{{ end }}
+{{ template "partials/footer.html" . }}

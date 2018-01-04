@@ -1,0 +1,40 @@
+
+	<footer role="contentinfo">
+		<div class="hr"></div>
+		<address>
+			<div class="avatar-bottom">
+				<a href="/">
+					{{ with .Site.Params.logo }}
+					<img src="{{ . }}">
+					{{ end }}
+				</a>
+			</div>
+
+		<div class="copyright">Copyright &copy;
+			<a href="/about">{{ .Site.Params.author}}</a> All rights reserved.
+
+			<a href="https://github.com/{{ .Site.Params.github }}">
+				<span class="github">{{ .Site.Params.github }}@Github</span>
+			</a>
+		</div>
+		</address>
+	</footer>
+
+</div>
+
+{{ with .Site.Params.analytics }}<script>
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+	(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+	m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+	ga('create', '{{ . }}', 'auto');
+	ga('send', 'pageview');
+</script>{{ end }}
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+{{ partial "mathjax.html" . }}
+
+</body>
+</html>
