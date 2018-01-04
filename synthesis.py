@@ -34,19 +34,36 @@ from hparams import hparams
 use_cuda = torch.cuda.is_available()
 
 
-def generate(model, length=None, c=None, initial_value=None,
-             speaker_id=None, fast=False):
+def _to_numpy(x):
+    # this is ugly
+    if x is None:
+        return None
+    if isinstance(x, np.ndarray):
+        return x
+    # remove batch axis
+    if x.dim() == 3:
+        x = x.squeeze(0)
+    return x.numpy()
+
+
+def wavegen(model, length=None, c=None, g=None, initial_value=None, fast=False):
     """Generate waveform samples by WaveNet.
 
     Args:
-        model (nn.Module) : model
+        model (nn.Module) : WaveNet decoder
+        length (int): Time steps to generate. If conditinlal features are given,
+          then determined by the feature size.
+        c (numpy.ndarray): Conditional features, of shape T x C
+        g (scaler): Speaker ID
         initial_value (int) : initial_value for the WaveNet decoder.
-        length (int): Time steps to generate
-        c (numpy.ndarray): T x C
+        fast (Bool): Whether to remove weight normalization or not.
 
     Returns:
         numpy.ndarray : Generated waveform samples
     """
+    c = _to_numpy(c)
+    g = _to_numpy(g)
+
     if use_cuda:
         model = model.cuda()
     model.eval()
@@ -75,7 +92,7 @@ def generate(model, length=None, c=None, initial_value=None,
     initial_input = np_utils.to_categorical(
         initial_value, num_classes=256).astype(np.float32)
     initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
-    g = None if speaker_id is None else Variable(torch.LongTensor([speaker_id]))
+    g = None if g is None else Variable(torch.LongTensor([g]))
     if use_cuda:
         initial_input = initial_input.cuda()
         g = None if g is None else g.cuda()
@@ -129,7 +146,7 @@ if __name__ == "__main__":
     dst_wav_path = join(dst_dir, "{}{}.wav".format(checkpoint_name, file_name_suffix))
 
     # DO generate
-    waveform = generate(model, length, c, initial_value=initial_value, fast=True)
+    waveform = wavegen(model, length, c=c, g=speaker_id, initial_value=initial_value, fast=True)
 
     # save
     librosa.output.write_wav(dst_wav_path, waveform, sr=hparams.sample_rate)

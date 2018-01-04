@@ -654,41 +654,9 @@ def restore_parts(path, model):
     model.load_state_dict(model_dict)
 
 
-if __name__ == "__main__":
-    args = docopt(__doc__)
-    print("Command line args:\n", args)
-    checkpoint_dir = args["--checkpoint-dir"]
-    checkpoint_path = args["--checkpoint"]
-    checkpoint_restore_parts = args["--restore-parts"]
-    speaker_id = args["--speaker-id"]
-    speaker_id = int(speaker_id) if speaker_id is not None else None
-
-    data_root = args["--data-root"]
-    if data_root is None:
-        data_root = join(dirname(__file__), "data", "ljspeech")
-
-    log_event_path = args["--log-event-path"]
-    reset_optimizer = args["--reset-optimizer"]
-
-    # Override hyper parameters
-    hparams.parse(args["--hparams"])
-    print(hparams_debug_string())
-    assert hparams.name == "wavenet_vocoder"
-
-    local_conditioning = hparams.cin_channels is not None
-
-    # Presets
-    if hparams.preset is not None and hparams.preset != "":
-        preset = hparams.presets[hparams.preset]
-        import json
-        hparams.parse_json(json.dumps(preset))
-        print("Override hyper parameters with preset \"{}\": {}".format(
-            hparams.preset, json.dumps(preset, indent=4)))
-
-    os.makedirs(checkpoint_dir, exist_ok=True)
-
-    # Dataset and Dataloader setup
+def get_data_loaders(data_root, speaker_id, test_shuffle=True):
     data_loaders = {}
+    local_conditioning = hparams.cin_channels is not None
     for phase in ["train", "test"]:
         train = phase == "train"
         X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id=speaker_id,
@@ -717,7 +685,7 @@ if __name__ == "__main__":
             shuffle = False
         else:
             sampler = None
-            shuffle = True
+            shuffle = test_shuffle
 
         dataset = PyTorchDataset(X, Mel)
         data_loader = data_utils.DataLoader(
@@ -726,6 +694,42 @@ if __name__ == "__main__":
             collate_fn=collate_fn, pin_memory=hparams.pin_memory)
 
         data_loaders[phase] = data_loader
+    return data_loaders
+
+
+if __name__ == "__main__":
+    args = docopt(__doc__)
+    print("Command line args:\n", args)
+    checkpoint_dir = args["--checkpoint-dir"]
+    checkpoint_path = args["--checkpoint"]
+    checkpoint_restore_parts = args["--restore-parts"]
+    speaker_id = args["--speaker-id"]
+    speaker_id = int(speaker_id) if speaker_id is not None else None
+
+    data_root = args["--data-root"]
+    if data_root is None:
+        data_root = join(dirname(__file__), "data", "ljspeech")
+
+    log_event_path = args["--log-event-path"]
+    reset_optimizer = args["--reset-optimizer"]
+
+    # Override hyper parameters
+    hparams.parse(args["--hparams"])
+    print(hparams_debug_string())
+    assert hparams.name == "wavenet_vocoder"
+
+    # Presets
+    if hparams.preset is not None and hparams.preset != "":
+        preset = hparams.presets[hparams.preset]
+        import json
+        hparams.parse_json(json.dumps(preset))
+        print("Override hyper parameters with preset \"{}\": {}".format(
+            hparams.preset, json.dumps(preset, indent=4)))
+
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    # Dataloader setup
+    data_loaders = get_data_loaders(data_root, speaker_id, test_shuffle=True)
 
     # Model
     model = build_model()
