@@ -1,4 +1,4 @@
-"""Trainining script for seq2seq text-to-speech synthesis model.
+"""Trainining script for WaveNet vocoder
 
 usage: train.py [options]
 
@@ -281,7 +281,7 @@ def collate_fn(batch):
         batch(tuple): List of tuples
             - x[0] (ndarray,int) : list of (T,)
             - x[1] (ndarray,int) : list of (T, D)
-            - x[2] (ndarray,int) : list of (D,)
+            - x[2] (ndarray,int) : list of (1,), speaker id
     Returns:
         tuple: Tuple of batch
             - x (FloatTensor) : Network inputs (B, C, T)
@@ -388,7 +388,7 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, c, input_lengths, eval_dir):
+def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
     model.eval()
     idx = np.random.randint(0, len(y))
     length = input_lengths[idx].data.cpu().numpy()[0]
@@ -399,7 +399,11 @@ def eval_model(global_step, writer, model, y, c, input_lengths, eval_dir):
     if c is not None:
         c = c[idx, :, :length].unsqueeze(0)
         assert c.dim() == 3
-        print("Shape of Local conditioning features: {}".format(c.size()))
+        print("Shape of local conditioning features: {}".format(c.size()))
+    if g is not None:
+        # TODO: test
+        g = g[idx]
+        print("Shape of global conditioning features: {}".g.size())
 
     # Dummy silence
     initial_value = P.mulaw_quantize(0)
@@ -410,7 +414,7 @@ def eval_model(global_step, writer, model, y, c, input_lengths, eval_dir):
     initial_input = Variable(torch.from_numpy(initial_input), volatile=True).view(1, 1, 256)
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
-        initial_input, c=c, T=length, tqdm=tqdm, softmax=True, quantize=True)
+        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
     y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
     y_hat = P.inv_mulaw_quantize(y_hat)
 
@@ -516,7 +520,7 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     if do_eval:
         # NOTE: use train step (i.e., global_step) for filename
-        eval_model(global_step, writer, model, y, c, input_lengths, eval_dir)
+        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir)
 
     # Update
     if train:
@@ -552,10 +556,14 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 do_eval = False
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
                 # Do eval per eval_interval for train
-                if train and global_step > 0 and global_step % hparams.eval_interval == 0:
+                if train and global_step > 0 \
+                        and global_step % hparams.train_eval_interval == 0:
                     do_eval = True
-                # Do eval per epoch once for test
-                if not train and not test_evaluated:
+                # Do eval for test
+                # NOTE: Decoding WaveNet is quite time consuming, so
+                # do only once in a single epoch for testset
+                if not train and not test_evaluated \
+                        and global_epoch % hparams.test_eval_epoch_interval == 0:
                     do_eval = True
                     test_evaluated = True
                 if do_eval:
@@ -706,13 +714,15 @@ if __name__ == "__main__":
             # Prepare sampler
             sampler = PartialyRandomizedSimilarTimeLengthSampler(
                 lengths, batch_size=hparams.batch_size)
+            shuffle = False
         else:
             sampler = None
+            shuffle = True
 
         dataset = PyTorchDataset(X, Mel)
         data_loader = data_utils.DataLoader(
             dataset, batch_size=hparams.batch_size,
-            num_workers=hparams.num_workers, sampler=sampler,
+            num_workers=hparams.num_workers, sampler=sampler, shuffle=shuffle,
             collate_fn=collate_fn, pin_memory=hparams.pin_memory)
 
         data_loaders[phase] = data_loader

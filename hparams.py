@@ -69,7 +69,7 @@ hparams = tf.contrib.training.HParams(
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
-    initial_learning_rate=2e-3,
+    initial_learning_rate=1e-3,
     lr_schedule="noam_learning_rate_decay",
     lr_schedule_kwargs={},
     nepochs=2000,
@@ -80,8 +80,11 @@ hparams = tf.contrib.training.HParams(
     max_time_sec=2.0,
 
     # Save
+    # per-step intervals
     checkpoint_interval=5000,
-    eval_interval=5000,
+    train_eval_interval=5000,
+    # per-epoch interval
+    test_eval_epoch_interval=5,
     save_optimizer_state=True,
 
     # Eval:

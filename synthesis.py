@@ -75,14 +75,14 @@ def generate(model, length=None, c=None, initial_value=None,
     initial_input = np_utils.to_categorical(
         initial_value, num_classes=256).astype(np.float32)
     initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, 256)
-    speaker_ids = None if speaker_id is None else Variable(torch.LongTensor([speaker_id]))
+    g = None if speaker_id is None else Variable(torch.LongTensor([speaker_id]))
     if use_cuda:
         initial_input = initial_input.cuda()
-        speaker_ids = None if speaker_ids is None else speaker_ids.cuda()
+        g = None if g is None else g.cuda()
         c = None if c is None else c.cuda()
 
     y_hat = model.incremental_forward(
-        initial_input, c=c, T=length, tqdm=tqdm, softmax=True, quantize=True)
+        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
     y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
     y_hat = P.inv_mulaw_quantize(y_hat)
 
