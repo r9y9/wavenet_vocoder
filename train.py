@@ -403,7 +403,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
     if g is not None:
         # TODO: test
         g = g[idx]
-        print("Shape of global conditioning features: {}".g.size())
+        print("Shape of global conditioning features: {}".format(g.size()))
 
     # Dummy silence
     initial_value = P.mulaw_quantize(0)

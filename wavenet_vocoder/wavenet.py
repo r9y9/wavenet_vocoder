@@ -65,7 +65,7 @@ class WaveNet(nn.Module):
                  gate_channels=512,
                  skip_out_channels=512,
                  kernel_size=3, dropout=1 - 0.95,
-                 cin_channels=None, gin_channels=None, n_speakers=None,
+                 cin_channels=-1, gin_channels=-1, n_speakers=None,
                  weight_normalization=True,
                  upsample_conditional_features=False,
                  upsample_scales=None):
@@ -201,6 +201,8 @@ class WaveNet(nn.Module):
                 T = test_inputs.size(1)
             else:
                 T = max(T, test_inputs.size(1))
+        # cast to int in case of numpy.int64...
+        T = int(T)
 
         # Global conditioning
         if g is not None:
