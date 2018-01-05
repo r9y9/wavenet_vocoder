@@ -49,7 +49,7 @@ hparams = tf.contrib.training.HParams(
     # Global conditioning (set negative value to disable)
     # currently limited for speaker embedding
     # this should only be enabled for multi-speaker dataset
-    gin_channels=4,  # i.e., speaker embedding dim
+    gin_channels=16,  # i.e., speaker embedding dim
     n_speakers=7,  # 7 for CMU ARCTIC
 
     # Data loader

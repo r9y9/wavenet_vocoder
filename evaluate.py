@@ -78,16 +78,6 @@ if __name__ == "__main__":
     os.makedirs(dst_dir, exist_ok=True)
     dst_dir_name = basename(os.path.normpath(dst_dir))
 
-    speaker_ids = {}
-    for idx, (x, c, g) in enumerate(test_dataset):
-        if g is not None:
-            try:
-                speaker_ids[g] += 1
-            except KeyError:
-                speaker_ids[g] = 1
-    if len(speaker_ids) > 0:
-        print("Speaker stats in testset:", speaker_ids)
-
     for idx, (x, c, g) in enumerate(test_dataset):
         target_audio_path = test_dataset.X.collected_files[idx][0]
         if output_html:
