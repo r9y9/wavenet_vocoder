@@ -10,7 +10,7 @@ options:
     --initial-value=<n>               Initial value for the WaveNet decoder.
     --conditional=<p>                 Conditional features path.
     --file-name-suffix=<s>            File name suffix [default: ].
-    --speaker_id=<id>                 Speaker ID (for multi-speaker model).
+    --speaker-id=<id>                 Speaker ID (for multi-speaker model).
     --output-html                     Output html for blog post.
     -h, --help               Show help message.
 """
@@ -38,7 +38,7 @@ def _to_numpy(x):
     # this is ugly
     if x is None:
         return None
-    if isinstance(x, np.ndarray):
+    if isinstance(x, np.ndarray) or np.isscalar(x):
         return x
     # remove batch axis
     if x.dim() == 3:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     conditional_path = args["--conditional"]
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
-    speaker_id = args["--speaker_id"]
+    speaker_id = args["--speaker-id"]
     speaker_id = None if speaker_id is None else int(speaker_id)
 
     # Override hyper parameters
