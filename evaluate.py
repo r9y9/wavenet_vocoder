@@ -12,7 +12,7 @@ options:
     --initial-value=<n>         Initial value for the WaveNet decoder.
     --file-name-suffix=<s>      File name suffix [default: ].
     --output-html               Output html for blog post.
-    --generate-one-per-speaker  Generate one utterenace per speaker.
+    --num-utterances=N>         Generate N utterenaces per speaker [default: -1].
     -h, --help                  Show help message.
 """
 from docopt import docopt
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     initial_value = None if initial_value is None else int(initial_value)
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
-    generate_one_per_speaker = args["--generate-one-per-speaker"]
+    num_utterances = int(args["--num-utterances"])
 
     # Override hyper parameters
     hparams.parse(args["--hparams"])
@@ -80,15 +80,16 @@ if __name__ == "__main__":
     os.makedirs(dst_dir, exist_ok=True)
     dst_dir_name = basename(os.path.normpath(dst_dir))
 
-    generated_speakers = {}
+    generated_utterances = {}
     for idx, (x, c, g) in enumerate(test_dataset):
         target_audio_path = test_dataset.X.collected_files[idx][0]
-        if generate_one_per_speaker:
+        if num_utterances > 0 and g is not None:
             try:
-                if generated_speakers[g] > 0:
+                generated_utterances[g] += 1
+                if generated_utterances[g] > num_utterances:
                     continue
             except KeyError:
-                generated_speakers[g] = 1
+                generated_utterances[g] = 1
 
         if output_html:
             def _tqdm(x): return x
@@ -101,10 +102,16 @@ if __name__ == "__main__":
                 print("Global conditioned by speaker id {}".format(g))
 
         # Paths
-        dst_wav_path = join(dst_dir, "{}_{}{}_predicted.wav".format(
-            idx, checkpoint_name, file_name_suffix))
-        target_wav_path = join(dst_dir, "{}_{}{}_target.wav".format(
-            idx, checkpoint_name, file_name_suffix))
+        if g is None:
+            dst_wav_path = join(dst_dir, "{}_{}{}_predicted.wav".format(
+                idx, checkpoint_name, file_name_suffix))
+            target_wav_path = join(dst_dir, "{}_{}{}_target.wav".format(
+                idx, checkpoint_name, file_name_suffix))
+        else:
+            dst_wav_path = join(dst_dir, "speaker{}_{}_{}{}_predicted.wav".format(
+                g, idx, checkpoint_name, file_name_suffix))
+            target_wav_path = join(dst_dir, "speaker{}_{}_{}{}_target.wav".format(
+                g, idx, checkpoint_name, file_name_suffix))
 
         # Generate
         waveform = wavegen(model, length, c=c, g=g, initial_value=initial_value,
