@@ -12,6 +12,7 @@ options:
     --initial-value=<n>         Initial value for the WaveNet decoder.
     --file-name-suffix=<s>      File name suffix [default: ].
     --output-html               Output html for blog post.
+    --generate-one-per-speaker  Generate one utterenace per speaker.
     -h, --help                  Show help message.
 """
 from docopt import docopt
@@ -52,6 +53,7 @@ if __name__ == "__main__":
     initial_value = None if initial_value is None else int(initial_value)
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
+    generate_one_per_speaker = args["--generate-one-per-speaker"]
 
     # Override hyper parameters
     hparams.parse(args["--hparams"])
@@ -78,8 +80,16 @@ if __name__ == "__main__":
     os.makedirs(dst_dir, exist_ok=True)
     dst_dir_name = basename(os.path.normpath(dst_dir))
 
+    generated_speakers = {}
     for idx, (x, c, g) in enumerate(test_dataset):
         target_audio_path = test_dataset.X.collected_files[idx][0]
+        if generate_one_per_speaker:
+            try:
+                if generated_speakers[g] > 0:
+                    continue
+            except KeyError:
+                generated_speakers[g] = 1
+
         if output_html:
             def _tqdm(x): return x
         else:
