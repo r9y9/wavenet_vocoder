@@ -6,6 +6,7 @@ usage: preprocess.py [options] <name> <in_dir> <out_dir>
 
 options:
     --num_workers=<n>        Num workers.
+    --hparams=<parmas>       Hyper parameters [default: ].
     -h, --help               Show help message.
 """
 from docopt import docopt
@@ -42,6 +43,12 @@ if __name__ == "__main__":
     num_workers = args["--num_workers"]
     num_workers = cpu_count() if num_workers is None else int(num_workers)
 
-    assert name in ["cmu_arctic"]
+    # Override hyper parameters
+    hparams.parse(args["--hparams"])
+    assert hparams.name == "wavenet_vocoder"
+
+    print("Sampling frequency: {}".format(hparams.sample_rate))
+
+    assert name in ["cmu_arctic", "ljspeech"]
     mod = importlib.import_module(name)
     preprocess(mod, in_dir, out_dir, num_workers)
