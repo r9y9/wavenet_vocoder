@@ -18,7 +18,7 @@
       
       <guid>https://r9y9.github.io/wavenet_vocoder/index/</guid>
       <description>Github: https://github.com/r9y9/wavenet_vocoder  This page provides audio samples for the open source implementation of the WaveNet vocoder.
- WaveNet vocoder conditioned on mel-spectrogram (signel-speaker) WaveNet vocoder conditioned on mel-spectrogram (multi-speaker) (Not yet) DeepVoice3 + WaveNet vocoder  WaveNet vocoder conditioned on mel-spectrogram (signel-speaker)    key value     Data CMU ARCTIC (clb) (1183 for training, 50 for testing)   Sampling frequency 16kHz   Local conditioning 80-dim mel-spectrogram   Global conditioning N/A   Total layers 16   Num cycles 2   Receptive field (samples / ms) 1021 / 63.</description>
+ WaveNet vocoder conditioned on mel-spectrogram WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (Not yet) DeepVoice3 + WaveNet vocoder  WaveNet vocoder conditioned on mel-spectrogram    key value     Data CMU ARCTIC (clb) (1183 for training, 50 for testing)   Sampling frequency 16kHz   Local conditioning 80-dim mel-spectrogram   Global conditioning N/A   Total layers 16   Num cycles 2   Receptive field (samples / ms) 1021 / 63.</description>
     </item>
     
   </channel>
