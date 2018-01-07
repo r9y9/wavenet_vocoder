@@ -99,54 +99,54 @@ Your browser does not support the audio element.
 
 <br/>
 
-Samples from a model trained for 150k steps (~28 hours)
+Samples from a model trained for 200k steps (~44 hours)
 
 **awb**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_12_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_12_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_7_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_7_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **bdl**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_2_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_2_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_33_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_33_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **clb**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_5_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_5_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_9_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_9_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **jmk**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_24_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_24_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_30_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_30_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -154,12 +154,12 @@ Your browser does not support the audio element.
 **ksp**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_25_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_25_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_3_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_3_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -167,12 +167,12 @@ Your browser does not support the audio element.
 **rms**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_0_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_0_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_1_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_1_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -180,12 +180,12 @@ Your browser does not support the audio element.
 
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_4_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_4_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000150000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
