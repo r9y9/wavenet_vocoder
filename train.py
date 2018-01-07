@@ -138,10 +138,11 @@ class _NPYDataSource(FileDataSource):
         paths = list(np.array(paths)[indices])
         self.lengths = list(np.array(self.lengths)[indices])
         self.lengths = list(map(int, self.lengths))
-        self.speaker_ids = list(np.array(self.speaker_ids)[indices])
-        self.speaker_ids = list(map(int, self.speaker_ids))
 
-        assert len(paths) == len(self.speaker_ids)
+        if self.multi_speaker:
+            self.speaker_ids = list(np.array(self.speaker_ids)[indices])
+            self.speaker_ids = list(map(int, self.speaker_ids))
+            assert len(paths) == len(self.speaker_ids)
 
         return paths
 
