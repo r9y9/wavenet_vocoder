@@ -624,7 +624,9 @@ def build_model():
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size,
         upsample_conditional_features=hparams.upsample_conditional_features,
-        upsample_scales=hparams.upsample_scales)
+        upsample_scales=hparams.upsample_scales,
+        freq_axis_kernel_size=hparams.freq_axis_kernel_size,
+    )
     return model
 
 

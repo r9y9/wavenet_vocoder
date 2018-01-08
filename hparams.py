@@ -45,6 +45,8 @@ hparams = tf.contrib.training.HParams(
     upsample_conditional_features=False,
     # should np.prod(upsample_scales) == hop_size
     upsample_scales=[16, 16],
+    # Freq axis kernel size for upsampling network
+    freq_axis_kernel_size=3,
 
     # Global conditioning (set negative value to disable)
     # currently limited for speaker embedding

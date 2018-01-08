@@ -15,6 +15,7 @@ def wavenet(layers=20,
             n_speakers=None,
             upsample_conditional_features=False,
             upsample_scales=[16, 16],
+            freq_axis_kernel_size=3,
             ):
     from wavenet_vocoder import WaveNet
 
@@ -27,6 +28,8 @@ def wavenet(layers=20,
                     cin_channels=cin_channels, gin_channels=gin_channels,
                     n_speakers=n_speakers,
                     upsample_conditional_features=upsample_conditional_features,
-                    upsample_scales=upsample_scales)
+                    upsample_scales=upsample_scales,
+                    freq_axis_kernel_size=freq_axis_kernel_size,
+                    )
 
     return model
