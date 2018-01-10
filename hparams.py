@@ -33,7 +33,7 @@ hparams = tf.contrib.training.HParams(
     residual_channels=256,
     gate_channels=512,  # split into 2 gropus internally for gated activation
     skip_out_channels=256,
-    dropout=1 - 0.98,
+    dropout=1 - 0.95,
     kernel_size=3,
     # If True, apply weight normalization as same as DeepVoice3
     weight_normalization=True,
@@ -51,7 +51,7 @@ hparams = tf.contrib.training.HParams(
     # Global conditioning (set negative value to disable)
     # currently limited for speaker embedding
     # this should only be enabled for multi-speaker dataset
-    gin_channels=16,  # i.e., speaker embedding dim
+    gin_channels=-1,  # i.e., speaker embedding dim
     n_speakers=7,  # 7 for CMU ARCTIC
 
     # Data loader
@@ -83,8 +83,8 @@ hparams = tf.contrib.training.HParams(
 
     # Save
     # per-step intervals
-    checkpoint_interval=5000,
-    train_eval_interval=5000,
+    checkpoint_interval=10000,
+    train_eval_interval=10000,
     # per-epoch interval
     test_eval_epoch_interval=5,
     save_optimizer_state=True,

@@ -1,4 +1,5 @@
 pretrained_models
+notebooks
 wavenet_vocoder/version.py
 checkpoints*
 log
