@@ -53,7 +53,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     Args:
         model (nn.Module) : WaveNet decoder
         length (int): Time steps to generate. If conditinlal features are given,
-          then determined by the feature size.
+          then this is determined by the feature size.
         c (numpy.ndarray): Conditional features, of shape T x C
         g (scaler): Speaker ID
         initial_value (int) : initial_value for the WaveNet decoder.
@@ -75,16 +75,19 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     if c is None:
         assert length is not None
     else:
-        # (N, D)
+        # (Tc, D)
         assert c.ndim == 2
-        # (T, D)
+        Tc = c.shape[0]
+        upsample_factor = audio.get_hop_size()
+        # Overwrite length according to feature size
+        length = Tc * upsample_factor
+        # (Tc, D) -> (Tc', D)
+        # Repeat features before feeding it to the network
         if not hparams.upsample_conditional_features:
-            upsample_factor = audio.get_hop_size()
             c = np.repeat(c, upsample_factor, axis=0)
-        length = c.shape[0]
+
         # B x C x T
-        c = c.T.reshape(1, -1, length)
-        c = Variable(torch.FloatTensor(c))
+        c = Variable(torch.FloatTensor(c.T).unsqueeze(0))
 
     if initial_value is None:
         initial_value = P.mulaw_quantize(0)  # dummy silence
