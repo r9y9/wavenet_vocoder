@@ -299,6 +299,8 @@ def collate_fn(batch):
     # To save GPU memory... I don't want to do this though
     if hparams.max_time_sec is not None:
         max_time_steps = int(hparams.max_time_sec * hparams.sample_rate)
+    elif hparams.max_time_steps is not None:
+        max_time_steps = hparams.max_time_steps
     else:
         max_time_steps = None
 

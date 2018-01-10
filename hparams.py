@@ -60,8 +60,8 @@ hparams = tf.contrib.training.HParams(
 
     # train/test
     # test size can be specified as portion or num samples
-    test_size=None,
-    test_num_samples=50 * 7,
+    test_size=0.0441,  # 50 for CMU ARCTIC single speaker
+    test_num_samples=None,
     random_state=1234,
 
     # Loss
@@ -77,9 +77,11 @@ hparams = tf.contrib.training.HParams(
     nepochs=2000,
     weight_decay=0.0,
     clip_thresh=1.0,
-    # If None, longer samples thean max_time_sec will be trimmed
+    # max time steps can either be specified as sec or steps
     # This is needed for those who don't have huge GPU memory...
-    max_time_sec=2.0,
+    # if both are None, then full audio samples are used
+    max_time_sec=None,
+    max_time_steps=20000,
 
     # Save
     # per-step intervals
