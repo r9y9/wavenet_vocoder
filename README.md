@@ -95,7 +95,6 @@ Out[2]:
  (6, 'slt')]
 ```
 
-
 #### Training un-conditional WaveNet
 
 ```
@@ -119,7 +118,7 @@ python train.py --data-root=./data/cmu_arctic/ \
     --hparams="cin_channels=80,gin_channels=16,n_speakers=7"
 ```
 
-### 4. Monitor with Tensorboard
+### 3. Monitor with Tensorboard
 
 Logs are dumped in `./log` directory by default. You can monitor logs by tensorboard:
 
@@ -127,7 +126,7 @@ Logs are dumped in `./log` directory by default. You can monitor logs by tensorb
 tensorboard --logdir=log
 ```
 
-### 5. Synthesize from a checkpoint
+### 4. Synthesize from a checkpoint
 
 Usage:
 
