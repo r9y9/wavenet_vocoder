@@ -10,7 +10,6 @@ options:
     --restore-parts=<path>       Restore part of the model.
     --log-event-path=<name>      Log event path.
     --reset-optimizer            Reset optimizer.
-    --load-embedding=<path>      Load embedding from checkpoint.
     --speaker-id=<N>             Use specific speaker of data in case for multi-speaker datasets.
     -h, --help                   Show this help message and exit
 """
