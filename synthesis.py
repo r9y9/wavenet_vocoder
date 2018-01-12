@@ -63,6 +63,9 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     Returns:
         numpy.ndarray : Generated waveform samples
     """
+    from train import sanity_check
+    sanity_check(model, c, g)
+
     c = _to_numpy(c)
     g = _to_numpy(g)
 

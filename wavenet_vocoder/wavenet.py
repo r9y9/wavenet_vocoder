@@ -73,6 +73,7 @@ class WaveNet(nn.Module):
                  ):
         super(WaveNet, self).__init__()
         self.labels = labels
+        self.cin_channels = cin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
         self.first_conv = Conv1d1x1(labels, residual_channels)
@@ -102,6 +103,8 @@ class WaveNet(nn.Module):
             assert n_speakers is not None
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
+        else:
+            self.embed_speakers = None
 
         # Upsample conv net
         if upsample_conditional_features:
@@ -120,6 +123,12 @@ class WaveNet(nn.Module):
             self.upsample_conv = None
 
         self.receptive_field = receptive_field_size(layers, stacks, kernel_size)
+
+    def has_speaker_embedding(self):
+        return self.embed_speakers is not None
+
+    def local_conditioning_enabled(self):
+        return self.cin_channels > 0
 
     def forward(self, x, c=None, g=None, softmax=False):
         """Forward step

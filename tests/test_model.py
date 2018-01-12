@@ -109,6 +109,8 @@ def test_local_conditioning_correctness():
     # condition by power
     x, x_org, c = _quantized_test_data(returns_power=True)
     model = build_compact_model(cin_channels=1)
+    assert model.local_conditioning_enabled()
+    assert not model.has_speaker_embedding()
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -149,6 +151,8 @@ def test_local_conditioning_upsample_correctness():
     model = build_compact_model(
         cin_channels=1, upsample_conditional_features=True,
         upsample_scales=[2, 2])
+    assert model.local_conditioning_enabled()
+    assert not model.has_speaker_embedding()
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -183,6 +187,8 @@ def test_global_conditioning_correctness():
     x, x_org, c = _quantized_test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
     model = build_compact_model(gin_channels=16, n_speakers=256)
+    assert not model.local_conditioning_enabled()
+    assert model.has_speaker_embedding()
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
@@ -216,6 +222,8 @@ def test_global_and_local_conditioning_correctness():
     x, x_org, c = _quantized_test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
     model = build_compact_model(cin_channels=1, gin_channels=16, n_speakers=256)
+    assert model.local_conditioning_enabled()
+    assert model.has_speaker_embedding()
 
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x

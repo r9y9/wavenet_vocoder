@@ -63,6 +63,24 @@ if use_cuda:
     cudnn.benchmark = False
 
 
+def sanity_check(model, c, g):
+    if model.has_speaker_embedding():
+        if g is None:
+            raise RuntimeError(
+                "WaveNet expects speaker embedding, but speaker-id is not provided")
+    else:
+        if g is not None:
+            raise RuntimeError(
+                "WaveNet expects no speaker embedding, but speaker-id is provided")
+
+    if model.local_conditioning_enabled():
+        if c is None:
+            raise RuntimeError("WaveNet expects conditional features, but not given")
+    else:
+        if c is not None:
+            raise RuntimeError("WaveNet expects no conditional features, but given")
+
+
 def _pad(seq, max_len, constant_values=0):
     return np.pad(seq, (0, max_len - len(seq)),
                   mode='constant', constant_values=constant_values)
@@ -472,6 +490,8 @@ def __train_step(phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
                  x, y, c, g, input_lengths,
                  checkpoint_dir, eval_dir=None, do_eval=False):
+    sanity_check(model, c, g)
+
     # x : (B, C, T)
     # y : (B, T, 1)
     # c : (B, C, T)
