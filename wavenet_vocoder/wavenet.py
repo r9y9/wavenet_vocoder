@@ -60,7 +60,7 @@ class WaveNet(nn.Module):
     """WaveNet
     """
 
-    def __init__(self, labels=256, layers=20, stacks=2,
+    def __init__(self, out_channels=256, layers=20, stacks=2,
                  residual_channels=512,
                  gate_channels=512,
                  skip_out_channels=512,
@@ -72,11 +72,11 @@ class WaveNet(nn.Module):
                  freq_axis_kernel_size=3,
                  ):
         super(WaveNet, self).__init__()
-        self.labels = labels
+        self.out_channels = out_channels
         self.cin_channels = cin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-        self.first_conv = Conv1d1x1(labels, residual_channels)
+        self.first_conv = Conv1d1x1(out_channels, residual_channels)
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
@@ -95,7 +95,7 @@ class WaveNet(nn.Module):
             Conv1d1x1(skip_out_channels, skip_out_channels,
                       weight_normalization=weight_normalization),
             nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, labels,
+            Conv1d1x1(skip_out_channels, out_channels,
                       weight_normalization=weight_normalization),
         ])
 
@@ -140,7 +140,7 @@ class WaveNet(nn.Module):
             softmax (bool): Whether applies softmax or not.
 
         Returns:
-            Variable: outupt, shape B x labels x T
+            Variable: outupt, shape B x out_channels x T
         """
         # Expand global conditioning features to all time steps
         B, _, T = x.size()
@@ -210,7 +210,7 @@ class WaveNet(nn.Module):
         # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
         # batch forward due to linealized convolution
         if test_inputs is not None:
-            if test_inputs.size(1) == self.labels:
+            if test_inputs.size(1) == self.out_channels:
                 test_inputs = test_inputs.transpose(1, 2).contiguous()
             B = test_inputs.size(0)
             if T is None:
@@ -243,13 +243,13 @@ class WaveNet(nn.Module):
 
         outputs = []
         if initial_input is None:
-            initial_input = Variable(torch.zeros(B, 1, self.labels))
+            initial_input = Variable(torch.zeros(B, 1, self.out_channels))
             initial_input[:, :, 127] = 1  # TODO: is this ok?
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
         else:
-            if initial_input.size(1) == self.labels:
+            if initial_input.size(1) == self.out_channels:
                 initial_input = initial_input.transpose(1, 2).contiguous()
 
         current_input = initial_input
@@ -280,7 +280,7 @@ class WaveNet(nn.Module):
             x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
             if quantize:
                 sample = np.random.choice(
-                    np.arange(self.labels), p=x.view(-1).data.cpu().numpy())
+                    np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
                 x.zero_()
                 x[:, sample] = 1.0
             outputs += [x]

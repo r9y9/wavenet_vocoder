@@ -635,6 +635,7 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
 
 def build_model():
     model = getattr(builder, hparams.builder)(
+        out_channels=hparams.out_channels,
         layers=hparams.layers,
         stacks=hparams.stacks,
         residual_channels=hparams.residual_channels,
