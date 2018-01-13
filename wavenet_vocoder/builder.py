@@ -17,6 +17,7 @@ def wavenet(out_channels=256,
             upsample_conditional_features=False,
             upsample_scales=[16, 16],
             freq_axis_kernel_size=3,
+            mulaw=True,
             ):
     from wavenet_vocoder import WaveNet
 
@@ -31,6 +32,7 @@ def wavenet(out_channels=256,
                     upsample_conditional_features=upsample_conditional_features,
                     upsample_scales=upsample_scales,
                     freq_axis_kernel_size=freq_axis_kernel_size,
+                    mulaw=mulaw,
                     )
 
     return model

@@ -16,9 +16,17 @@ hparams = tf.contrib.training.HParams(
     presets={
     },
 
+    # If mulaw is True, audio signal in [-1, 1] is mu-law quantized to
+    # [0, quantize_channels), conveted to one-hot vector and
+    # then fed to the network, otherwise fed directly to the network.
+    # NOTE: if you change the one of the two parameters below, then you need to
+    # re-run preprocessing.
+    mulaw=False,
+    quantize_channels=256,  # 65536 or 256
+
     # Audio:
-    quantize_channels=256,
-    sample_rate=22050,
+    sample_rate=16000,
+    # this is only valid for mulaw is True
     silence_threshold=2,
     num_mels=80,
     fft_size=1024,
@@ -29,7 +37,9 @@ hparams = tf.contrib.training.HParams(
     ref_level_db=20,
 
     # Model:
-    out_channels=256,
+    # This should equal to `quantize_channels` if mulaw enabled
+    # otherwise num_mixture * 3 (pi, mean, log_scale)
+    out_channels=10 * 3,
     layers=20,
     stacks=2,
     residual_channels=512,
@@ -88,7 +98,7 @@ hparams = tf.contrib.training.HParams(
     # Save
     # per-step intervals
     checkpoint_interval=10000,
-    train_eval_interval=10000,
+    train_eval_interval=3000,
     # per-epoch interval
     test_eval_epoch_interval=5,
     save_optimizer_state=True,

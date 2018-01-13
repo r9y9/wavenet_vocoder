@@ -12,6 +12,7 @@ from torch.nn import functional as F
 from deepvoice3_pytorch.modules import Embedding
 
 from .modules import Conv1d1x1, ResidualConv1dGLU
+from .mixture import sample_from_discretized_mix_logistic
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -58,6 +59,10 @@ def receptive_field_size(total_layers, num_cycles, kernel_size,
 
 class WaveNet(nn.Module):
     """WaveNet
+
+    Args:
+        mulaw (Bool): If True, mu-law quantized signal is expected as input,
+          otherwise input should be scalar in [-1, 1].
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -70,13 +75,19 @@ class WaveNet(nn.Module):
                  upsample_conditional_features=False,
                  upsample_scales=None,
                  freq_axis_kernel_size=3,
+                 mulaw=True,
                  ):
         super(WaveNet, self).__init__()
+        self.mulaw = mulaw
         self.out_channels = out_channels
         self.cin_channels = cin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-        self.first_conv = Conv1d1x1(out_channels, residual_channels)
+        if mulaw:
+            self.first_conv = Conv1d1x1(out_channels, residual_channels)
+        else:
+            self.first_conv = Conv1d1x1(1, residual_channels)
+
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
@@ -199,10 +210,11 @@ class WaveNet(nn.Module):
             tqdm (lamda) : tqdm
             softmax (bool) : Whether applies softmax or not
             quantize (bool): Whether quantize softmax output before feeding the
-              network output to input for the next time step.
+              network output to input for the next time step. TODO: rename
 
         Returns:
-            Variable: Generated one-hot encoded samples. B x C x T
+            Variable: Generated one-hot encoded samples. B x C x T　
+              or scaler vector B x 1 x T
         """
         self.clear_buffer()
         B = 1
@@ -210,8 +222,13 @@ class WaveNet(nn.Module):
         # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
         # batch forward due to linealized convolution
         if test_inputs is not None:
-            if test_inputs.size(1) == self.out_channels:
-                test_inputs = test_inputs.transpose(1, 2).contiguous()
+            if self.mulaw:
+                if test_inputs.size(1) == self.out_channels:
+                    test_inputs = test_inputs.transpose(1, 2).contiguous()
+            else:
+                if test_inputs.size(1) == 1:
+                    test_inputs = test_inputs.transpose(1, 2).contiguous()
+
             B = test_inputs.size(0)
             if T is None:
                 T = test_inputs.size(1)
@@ -243,8 +260,11 @@ class WaveNet(nn.Module):
 
         outputs = []
         if initial_input is None:
-            initial_input = Variable(torch.zeros(B, 1, self.out_channels))
-            initial_input[:, :, 127] = 1  # TODO: is this ok?
+            if self.mulaw:
+                initial_input = Variable(torch.zeros(B, 1, self.out_channels))
+                initial_input[:, :, 127] = 1  # TODO: is this ok?
+            else:
+                initial_input = Variable(torch.zeros(B, 1, 1))
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
@@ -277,12 +297,16 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
-            if quantize:
-                sample = np.random.choice(
-                    np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
-                x.zero_()
-                x[:, sample] = 1.0
+            # Generate next input by sampling
+            if self.mulaw:
+                x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
+                if quantize:
+                    sample = np.random.choice(
+                        np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
+                    x.zero_()
+                    x[:, sample] = 1.0
+            else:
+                x = sample_from_discretized_mix_logistic(x.view(B, -1, 1))
             outputs += [x]
 
         # T x B x C

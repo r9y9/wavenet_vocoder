@@ -50,6 +50,9 @@ from tensorboardX import SummaryWriter
 from matplotlib import cm
 from warnings import warn
 
+from wavenet_vocoder.mixture import discretized_mix_logistic_loss
+from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
+
 import audio
 from hparams import hparams, hparams_debug_string
 
@@ -283,6 +286,27 @@ class MaskedCrossEntropyLoss(nn.Module):
         return ((losses * mask_).sum()) / mask_.sum()
 
 
+class DiscretizedMixturelogisticLoss(nn.Module):
+    def __init__(self):
+        super(DiscretizedMixturelogisticLoss, self).__init__()
+
+    def forward(self, input, target, lengths=None, mask=None, max_len=None):
+        if lengths is None and mask is None:
+            raise RuntimeError("Should provide either lengths or mask")
+
+        # (B, T, 1)
+        if mask is None:
+            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+
+        # (B, T, 1)
+        mask_ = mask.expand_as(target)
+
+        losses = discretized_mix_logistic_loss(
+            input, target, num_classes=hparams.quantize_channels, reduce=False)
+        assert losses.size() == target.size()
+        return ((losses * mask_).sum()) / mask_.sum()
+
+
 def ensure_divisible(length, divisible_by=256, lower=True):
     if length % divisible_by == 0:
         return length
@@ -362,12 +386,20 @@ def collate_fn(batch):
 
     # (B, T, C)
     # pad for time-axis
-    x_batch = np.array([_pad_2d(np_utils.to_categorical(x[0], num_classes=hparams.quantize_channels),
-                                max_input_len) for x in batch], dtype=np.float32)
+    if hparams.mulaw:
+        x_batch = np.array([_pad_2d(np_utils.to_categorical(
+            x[0], num_classes=hparams.quantize_channels),
+            max_input_len) for x in batch], dtype=np.float32)
+    else:
+        x_batch = np.array([_pad_2d(x[0].reshape(-1, 1), max_input_len)
+                            for x in batch], dtype=np.float32)
     assert len(x_batch.shape) == 3
 
     # (B, T)
-    y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
+    if hparams.mulaw:
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
+    else:
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.float32)
     assert len(y_batch.shape) == 2
 
     # (B, T, D)
@@ -388,7 +420,10 @@ def collate_fn(batch):
     # Covnert to channel first i.e., (B, C, T)
     x_batch = torch.FloatTensor(x_batch).transpose(1, 2).contiguous()
     # Add extra axis
-    y_batch = torch.LongTensor(y_batch).unsqueeze(-1).contiguous()
+    if hparams.mulaw:
+        y_batch = torch.LongTensor(y_batch).unsqueeze(-1).contiguous()
+    else:
+        y_batch = torch.FloatTensor(y_batch).unsqueeze(-1).contiguous()
 
     input_lengths = torch.LongTensor(input_lengths)
 
@@ -418,7 +453,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
     length = input_lengths[idx].data.cpu().numpy()[0]
 
     # (T,)
-    y_target = y[idx].view(-1).data.cpu().long().numpy()[:length]
+    y_target = y[idx].view(-1).data.cpu().numpy()[:length]
 
     if c is not None:
         c = c[idx, :, :length].unsqueeze(0)
@@ -430,21 +465,30 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         print("Shape of global conditioning features: {}".format(g.size()))
 
     # Dummy silence
-    initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+    if hparams.mulaw:
+        initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+    else:
+        initial_value = 0.0
     print("Intial value:", initial_value)
 
     # (C,)
-    initial_input = np_utils.to_categorical(
-        initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
-    initial_input = Variable(torch.from_numpy(initial_input),
-                             volatile=True).view(1, 1, hparams.quantize_channels)
+    if hparams.mulaw:
+        initial_input = np_utils.to_categorical(
+            initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
+        initial_input = Variable(torch.from_numpy(initial_input)).view(
+            1, 1, hparams.quantize_channels)
+    else:
+        initial_input = Variable(torch.zeros(1, 1, 1))
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
-    y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-    y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
 
-    y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+    if hparams.mulaw:
+        y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+    else:
+        y_hat = y_hat.view(-1).cpu().data.numpy()
 
     # Save audio
     os.makedirs(eval_dir, exist_ok=True)
@@ -464,16 +508,25 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     length = input_lengths[idx].data.cpu().numpy()[0]
 
     # (B, C, T)
-    y_hat = y_hat.squeeze(-1)
-    # (B, T)
-    y_hat = F.softmax(y_hat, dim=1).max(1)[1]
+    if y_hat.dim() == 4:
+        y_hat = y_hat.squeeze(-1)
 
-    # (T,)
-    y_hat = y_hat[idx].data.cpu().long().numpy()
-    y = y[idx].view(-1).data.cpu().long().numpy()
+    if hparams.mulaw:
+        # (B, T)
+        y_hat = F.softmax(y_hat, dim=1).max(1)[1]
 
-    y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
-    y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
+        # (T,)
+        y_hat = y_hat[idx].data.cpu().long().numpy()
+        y = y[idx].view(-1).data.cpu().long().numpy()
+
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+        y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
+    else:
+        # (B, T)
+        y_hat = sample_from_discretized_mix_logistic(y_hat)
+        # (T,)
+        y_hat = y_hat[idx].view(-1).data.cpu().numpy()
+        y = y[idx].view(-1).data.cpu().numpy()
 
     # Mask by length
     y_hat[length:] = 0
@@ -534,13 +587,16 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     # Apply model
     # NOTE: softmax is handled in F.cross_entrypy_loss
+    # y_hat: (B x C x T)
     y_hat = model(x, c=c, g=g, softmax=False)
 
-    # wee need 4d inputs for spatial cross entropy loss
-    # (B, C, T, 1)
-    y_hat = y_hat.unsqueeze(-1)
-
-    loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
+    if hparams.mulaw:
+        # wee need 4d inputs for spatial cross entropy loss
+        # (B, C, T, 1)
+        y_hat = y_hat.unsqueeze(-1)
+        loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
+    else:
+        loss = criterion(y_hat[:, :, :-1], y[:, 1:, :], mask=mask)
 
     if train and step > 0 and step % hparams.checkpoint_interval == 0:
         save_states(step, writer, y_hat, y, input_lengths, checkpoint_dir)
@@ -571,7 +627,10 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
     if use_cuda:
         model = model.cuda()
 
-    criterion = MaskedCrossEntropyLoss()
+    if hparams.mulaw:
+        criterion = MaskedCrossEntropyLoss()
+    else:
+        criterion = DiscretizedMixturelogisticLoss()
 
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
@@ -634,6 +693,8 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
 
 
 def build_model():
+    if hparams.mulaw:
+        assert hparams.out_channels == hparams.quantize_channels
     model = getattr(builder, hparams.builder)(
         out_channels=hparams.out_channels,
         layers=hparams.layers,
@@ -650,6 +711,7 @@ def build_model():
         upsample_conditional_features=hparams.upsample_conditional_features,
         upsample_scales=hparams.upsample_scales,
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
+        mulaw=hparams.mulaw,
     )
     return model
 
