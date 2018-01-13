@@ -17,7 +17,8 @@ hparams = tf.contrib.training.HParams(
     },
 
     # Audio:
-    sample_rate=16000,
+    quantize_channels=256,
+    sample_rate=22050,
     silence_threshold=2,
     num_mels=80,
     fft_size=1024,
@@ -28,9 +29,9 @@ hparams = tf.contrib.training.HParams(
     ref_level_db=20,
 
     # Model:
-    layers=16,
+    layers=20,
     stacks=2,
-    residual_channels=256,
+    residual_channels=512,
     gate_channels=512,  # split into 2 gropus internally for gated activation
     skip_out_channels=256,
     dropout=1 - 0.95,
@@ -67,7 +68,7 @@ hparams = tf.contrib.training.HParams(
     # Loss
 
     # Training:
-    batch_size=1,
+    batch_size=2,
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
@@ -81,7 +82,7 @@ hparams = tf.contrib.training.HParams(
     # This is needed for those who don't have huge GPU memory...
     # if both are None, then full audio samples are used
     max_time_sec=None,
-    max_time_steps=20000,
+    max_time_steps=8000,
 
     # Save
     # per-step intervals

@@ -362,7 +362,7 @@ def collate_fn(batch):
 
     # (B, T, C)
     # pad for time-axis
-    x_batch = np.array([_pad_2d(np_utils.to_categorical(x[0], num_classes=256),
+    x_batch = np.array([_pad_2d(np_utils.to_categorical(x[0], num_classes=hparams.quantize_channels),
                                 max_input_len) for x in batch], dtype=np.float32)
     assert len(x_batch.shape) == 3
 
@@ -430,19 +430,21 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         print("Shape of global conditioning features: {}".format(g.size()))
 
     # Dummy silence
-    initial_value = P.mulaw_quantize(0)
+    initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
     print("Intial value:", initial_value)
 
     # (C,)
-    initial_input = np_utils.to_categorical(initial_value, num_classes=256).astype(np.float32)
-    initial_input = Variable(torch.from_numpy(initial_input), volatile=True).view(1, 1, 256)
+    initial_input = np_utils.to_categorical(
+        initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
+    initial_input = Variable(torch.from_numpy(initial_input),
+                             volatile=True).view(1, 1, hparams.quantize_channels)
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
     y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-    y_hat = P.inv_mulaw_quantize(y_hat)
+    y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
 
-    y_target = P.inv_mulaw_quantize(y_target)
+    y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
 
     # Save audio
     os.makedirs(eval_dir, exist_ok=True)
@@ -470,8 +472,8 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     y_hat = y_hat[idx].data.cpu().long().numpy()
     y = y[idx].view(-1).data.cpu().long().numpy()
 
-    y_hat = P.inv_mulaw_quantize(y_hat)
-    y = P.inv_mulaw_quantize(y)
+    y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+    y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
 
     # Mask by length
     y_hat[length:] = 0

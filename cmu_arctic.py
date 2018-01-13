@@ -70,7 +70,7 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
         wav, _ = librosa.effects.trim(wav, top_db=20)
 
     # Mu-law quantize
-    quantized = P.mulaw_quantize(wav)
+    quantized = P.mulaw_quantize(wav, hparams.quantize_channels)
 
     # Trim silences
     start, end = audio.start_and_end_indices(quantized, hparams.silence_threshold)
@@ -86,7 +86,7 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
 
     # zero pad for quantized signal
     quantized = np.pad(quantized, (l, r), mode="constant",
-                       constant_values=P.mulaw_quantize(0))
+                       constant_values=P.mulaw_quantize(0, quantize_channels))
     N = mel_spectrogram.shape[0]
     assert len(quantized) >= N * audio.get_hop_size()
 
