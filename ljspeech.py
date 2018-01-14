@@ -9,6 +9,8 @@ from hparams import hparams
 from os.path import exists
 import librosa
 
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
+
 from hparams import hparams
 
 
@@ -32,7 +34,7 @@ def _process_utterance(out_dir, index, wav_path, text):
     wav = audio.load_wav(wav_path)
 
     # Mu-law quantize
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         # [0, quantize_channels)
         out = P.mulaw_quantize(wav, hparams.quantize_channels)
 
@@ -40,8 +42,13 @@ def _process_utterance(out_dir, index, wav_path, text):
         start, end = audio.start_and_end_indices(out, hparams.silence_threshold)
         wav = wav[start:end]
         out = out[start:end]
-        constant_values = P.mulaw_quantize(0, quantize_channels)
+        constant_values = P.mulaw_quantize(0, hparams.quantize_channels)
         out_dtype = np.int16
+    elif is_mulaw(hparams.input_type):
+        # [-1, 1]
+        out = P.mulaw(wav, hparams.quantize_channels)
+        constant_values = P.mulaw(0.0, hparams.quantize_channels)
+        out_dtype = np.float32
     else:
         # [-1, 1]
         out = wav

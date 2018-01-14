@@ -61,8 +61,8 @@ class WaveNet(nn.Module):
     """WaveNet
 
     Args:
-        mulaw (Bool): If True, mu-law quantized signal is expected as input,
-          otherwise input should be scalar in [-1, 1].
+        scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
+          quantized one-hot vector is expected.
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -75,18 +75,18 @@ class WaveNet(nn.Module):
                  upsample_conditional_features=False,
                  upsample_scales=None,
                  freq_axis_kernel_size=3,
-                 mulaw=True,
+                 scalar_input=False,
                  ):
         super(WaveNet, self).__init__()
-        self.mulaw = mulaw
+        self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-        if mulaw:
-            self.first_conv = Conv1d1x1(out_channels, residual_channels)
-        else:
+        if scalar_input:
             self.first_conv = Conv1d1x1(1, residual_channels)
+        else:
+            self.first_conv = Conv1d1x1(out_channels, residual_channels)
 
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
@@ -222,11 +222,11 @@ class WaveNet(nn.Module):
         # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
         # batch forward due to linealized convolution
         if test_inputs is not None:
-            if self.mulaw:
-                if test_inputs.size(1) == self.out_channels:
+            if self.scalar_input:
+                if test_inputs.size(1) == 1:
                     test_inputs = test_inputs.transpose(1, 2).contiguous()
             else:
-                if test_inputs.size(1) == 1:
+                if test_inputs.size(1) == self.out_channels:
                     test_inputs = test_inputs.transpose(1, 2).contiguous()
 
             B = test_inputs.size(0)
@@ -260,11 +260,11 @@ class WaveNet(nn.Module):
 
         outputs = []
         if initial_input is None:
-            if self.mulaw:
+            if self.scalar_input:
+                initial_input = Variable(torch.zeros(B, 1, 1))
+            else:
                 initial_input = Variable(torch.zeros(B, 1, self.out_channels))
                 initial_input[:, :, 127] = 1  # TODO: is this ok?
-            else:
-                initial_input = Variable(torch.zeros(B, 1, 1))
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
@@ -298,15 +298,15 @@ class WaveNet(nn.Module):
                     x = f(x)
 
             # Generate next input by sampling
-            if self.mulaw:
+            if self.scalar_input:
+                x = sample_from_discretized_mix_logistic(x.view(B, -1, 1))
+            else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:
                     sample = np.random.choice(
                         np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
                     x.zero_()
                     x[:, sample] = 1.0
-            else:
-                x = sample_from_discretized_mix_logistic(x.view(B, -1, 1))
             outputs += [x]
 
         # T x B x C

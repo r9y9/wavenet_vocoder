@@ -27,6 +27,8 @@ from keras.utils import np_utils
 from tqdm import tqdm
 import librosa
 
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
+
 import audio
 from hparams import hparams
 
@@ -93,12 +95,12 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         c = Variable(torch.FloatTensor(c.T).unsqueeze(0))
 
     if initial_value is None:
-        if hparams.mulaw:
-            initial_value = P.mulaw_quantize(0, hparams.quantize_channels)  # dummy silence
+        if is_mulaw_quantize(hparams.input_type):
+            initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
         else:
             initial_value = 0.0
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         assert initial_value >= 0 and initial_value < hparams.quantize_channels
         initial_input = np_utils.to_categorical(
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
@@ -116,9 +118,11 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
         y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+    elif is_mulaw(hparams.input_type):
+        y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
     else:
         y_hat = y_hat.view(-1).cpu().data.numpy()
 

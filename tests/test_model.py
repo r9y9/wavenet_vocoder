@@ -21,7 +21,8 @@ use_cuda = False
 
 # For test
 build_compact_model = partial(WaveNet, layers=4, stacks=2, residual_channels=32,
-                              gate_channels=32, skip_out_channels=32, mulaw=True)
+                              gate_channels=32, skip_out_channels=32,
+                              scalar_input=False)
 
 # https://github.com/keras-team/keras/blob/master/keras/utils/np_utils.py
 # copied to avoid keras dependency in tests
@@ -111,7 +112,8 @@ def _test_data(sr=4000, N=3000, returns_power=False, mulaw=True):
 def test_mixture_wavenet():
     x, x_org, c = _test_data(returns_power=True, mulaw=False)
     # 10 mixtures
-    model = build_compact_model(out_channels=3 * 10, cin_channels=1, mulaw=False)
+    model = build_compact_model(out_channels=3 * 10, cin_channels=1,
+                                scalar_input=True)
     T = x.shape[-1]
     print(model.first_conv)
 

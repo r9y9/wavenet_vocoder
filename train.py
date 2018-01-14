@@ -50,6 +50,7 @@ from tensorboardX import SummaryWriter
 from matplotlib import cm
 from warnings import warn
 
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw, is_scalar_input
 from wavenet_vocoder.mixture import discretized_mix_logistic_loss
 from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
 
@@ -386,7 +387,7 @@ def collate_fn(batch):
 
     # (B, T, C)
     # pad for time-axis
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         x_batch = np.array([_pad_2d(np_utils.to_categorical(
             x[0], num_classes=hparams.quantize_channels),
             max_input_len) for x in batch], dtype=np.float32)
@@ -396,7 +397,7 @@ def collate_fn(batch):
     assert len(x_batch.shape) == 3
 
     # (B, T)
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
     else:
         y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.float32)
@@ -420,7 +421,7 @@ def collate_fn(batch):
     # Covnert to channel first i.e., (B, C, T)
     x_batch = torch.FloatTensor(x_batch).transpose(1, 2).contiguous()
     # Add extra axis
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         y_batch = torch.LongTensor(y_batch).unsqueeze(-1).contiguous()
     else:
         y_batch = torch.FloatTensor(y_batch).unsqueeze(-1).contiguous()
@@ -465,28 +466,32 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         print("Shape of global conditioning features: {}".format(g.size()))
 
     # Dummy silence
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+    elif hparams.is_mulaw(hparams.input_type):
+        initial_value = P.mulaw(0.0, hparams.quantize_channels)
     else:
         initial_value = 0.0
     print("Intial value:", initial_value)
 
     # (C,)
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         initial_input = np_utils.to_categorical(
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
         initial_input = Variable(torch.from_numpy(initial_input)).view(
             1, 1, hparams.quantize_channels)
     else:
-        initial_input = Variable(torch.zeros(1, 1, 1))
+        initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
         y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
         y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+    elif hparams.is_mulaw(hparams.input_type):
+        y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
     else:
         y_hat = y_hat.view(-1).cpu().data.numpy()
 
@@ -511,7 +516,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     if y_hat.dim() == 4:
         y_hat = y_hat.squeeze(-1)
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         # (B, T)
         y_hat = F.softmax(y_hat, dim=1).max(1)[1]
 
@@ -527,6 +532,10 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         # (T,)
         y_hat = y_hat[idx].view(-1).data.cpu().numpy()
         y = y[idx].view(-1).data.cpu().numpy()
+
+        if hparams.is_mulaw(hparams.input_type):
+            y_hat = P.inv_mulaw(y_hat, hparams.quantize_channels)
+            y = P.inv_mulaw(y, hparams.quantize_channels)
 
     # Mask by length
     y_hat[length:] = 0
@@ -590,7 +599,7 @@ def __train_step(phase, epoch, global_step, global_test_step,
     # y_hat: (B x C x T)
     y_hat = model(x, c=c, g=g, softmax=False)
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
         # (B, C, T, 1)
         y_hat = y_hat.unsqueeze(-1)
@@ -627,7 +636,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
     if use_cuda:
         model = model.cuda()
 
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         criterion = MaskedCrossEntropyLoss()
     else:
         criterion = DiscretizedMixturelogisticLoss()
@@ -693,7 +702,7 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
 
 
 def build_model():
-    if hparams.mulaw:
+    if is_mulaw_quantize(hparams.input_type):
         assert hparams.out_channels == hparams.quantize_channels
     model = getattr(builder, hparams.builder)(
         out_channels=hparams.out_channels,
@@ -711,7 +720,7 @@ def build_model():
         upsample_conditional_features=hparams.upsample_conditional_features,
         upsample_scales=hparams.upsample_scales,
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
-        mulaw=hparams.mulaw,
+        scalar_input=is_scalar_input(hparams.input_type),
     )
     return model
 

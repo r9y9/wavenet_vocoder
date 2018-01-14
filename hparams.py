@@ -16,12 +16,16 @@ hparams = tf.contrib.training.HParams(
     presets={
     },
 
-    # If mulaw is True, audio signal in [-1, 1] is mu-law quantized to
-    # [0, quantize_channels), conveted to one-hot vector and
-    # then fed to the network, otherwise fed directly to the network.
-    # NOTE: if you change the one of the two parameters below, then you need to
-    # re-run preprocessing.
-    mulaw=False,
+    # Input type:
+    # 1. raw [-1, 1]
+    # 2. mulaw [-1, 1]
+    # 3. mulaw-quantize [0, mu]
+    # If input_type is raw or mulaw, network assumes scalar input and
+    # discretized mixture of logistic distributions output, otherwise one-hot
+    # input and softmax output are assumed.
+    # **NOTE**: if you change the one of the two parameters below, you need to
+    # re-run preprocessing before training.
+    input_type="mulaw",
     quantize_channels=256,  # 65536 or 256
 
     # Audio:
@@ -37,9 +41,9 @@ hparams = tf.contrib.training.HParams(
     ref_level_db=20,
 
     # Model:
-    # This should equal to `quantize_channels` if mulaw enabled
+    # This should equal to `quantize_channels` if mu-law quantize enabled
     # otherwise num_mixture * 3 (pi, mean, log_scale)
-    out_channels=10 * 3,
+    out_channels=5 * 3,
     layers=20,
     stacks=2,
     residual_channels=512,
@@ -84,8 +88,9 @@ hparams = tf.contrib.training.HParams(
     adam_beta2=0.999,
     adam_eps=1e-8,
     initial_learning_rate=1e-3,
+    # see lrschedule.py for available lr_schedule
     lr_schedule="noam_learning_rate_decay",
-    lr_schedule_kwargs={},
+    lr_schedule_kwargs={},  # {"anneal_rate": 0.5, "anneal_interval": 50000},
     nepochs=2000,
     weight_decay=0.0,
     clip_thresh=1.0,

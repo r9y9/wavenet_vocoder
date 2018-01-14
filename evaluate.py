@@ -28,6 +28,9 @@ from keras.utils import np_utils
 from tqdm import tqdm
 import librosa
 
+
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
+
 import audio
 from hparams import hparams
 
@@ -119,8 +122,10 @@ if __name__ == "__main__":
 
         # save
         librosa.output.write_wav(dst_wav_path, waveform, sr=hparams.sample_rate)
-        if hparams.mulaw:
-            x = P.inv_mulaw_quantize(x)
+        if is_mulaw_quantize(hparams.input_type):
+            x = P.inv_mulaw_quantize(x, hparams.quantize_channels)
+        elif is_mulaw(hparams.input_type):
+            x = P.inv_mulaw(x, hparams.quantize_channels)
         librosa.output.write_wav(target_wav_path, x, sr=hparams.sample_rate)
 
         # log
