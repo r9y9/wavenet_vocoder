@@ -468,7 +468,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
     # Dummy silence
     if is_mulaw_quantize(hparams.input_type):
         initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
-    elif hparams.is_mulaw(hparams.input_type):
+    elif is_mulaw(hparams.input_type):
         initial_value = P.mulaw(0.0, hparams.quantize_channels)
     else:
         initial_value = 0.0
@@ -490,7 +490,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
         y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
         y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
-    elif hparams.is_mulaw(hparams.input_type):
+    elif is_mulaw(hparams.input_type):
         y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
     else:
         y_hat = y_hat.view(-1).cpu().data.numpy()
@@ -533,7 +533,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         y_hat = y_hat[idx].view(-1).data.cpu().numpy()
         y = y[idx].view(-1).data.cpu().numpy()
 
-        if hparams.is_mulaw(hparams.input_type):
+        if is_mulaw(hparams.input_type):
             y_hat = P.inv_mulaw(y_hat, hparams.quantize_channels)
             y = P.inv_mulaw(y, hparams.quantize_channels)
 
