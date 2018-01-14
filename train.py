@@ -492,6 +492,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
     elif is_mulaw(hparams.input_type):
         y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
+        y_target = P.inv_mulaw(y_target, hparams.quantize_channels)
     else:
         y_hat = y_hat.view(-1).cpu().data.numpy()
 
