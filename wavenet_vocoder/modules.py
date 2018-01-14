@@ -10,14 +10,15 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 
-def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
+def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True,
+              dropout=0.):
     """1-by-1 convolution layer
     """
     if weight_normalization:
         from deepvoice3_pytorch.modules import Conv1d
         assert bias
         return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                      dilation=1, bias=bias, std_mul=1.0)
+                      dilation=1, bias=bias, std_mul=1.0, dropout=dropout)
     else:
         from deepvoice3_pytorch.conv import Conv1d
         return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
@@ -59,7 +60,7 @@ class ResidualConv1dGLU(nn.Module):
             from deepvoice3_pytorch.modules import Conv1d
             assert bias
             self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
-                               dropout=dropout, padding=padding, dilation=dilation,
+                               padding=padding, dilation=dilation,
                                bias=bias, std_mul=1.0, *args, **kwargs)
         else:
             from deepvoice3_pytorch.conv import Conv1d
@@ -108,7 +109,6 @@ class ResidualConv1dGLU(nn.Module):
             Variable: output
         """
         residual = x
-        x = F.dropout(x, p=self.dropout, training=self.training)
         if is_incremental:
             splitdim = -1
             x = self.conv.incremental_forward(x)
@@ -117,6 +117,7 @@ class ResidualConv1dGLU(nn.Module):
             x = self.conv(x)
             # remove future time steps
             x = x[:, :, :residual.size(-1)] if self.causal else x
+        x = F.dropout(x, p=self.dropout, training=self.training)
 
         a, b = x.split(x.size(splitdim) // 2, dim=splitdim)
 
