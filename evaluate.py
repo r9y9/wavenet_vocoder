@@ -50,7 +50,7 @@ if __name__ == "__main__":
     speaker_id = args["--speaker-id"]
     speaker_id = int(speaker_id) if speaker_id is not None else None
     initial_value = args["--initial-value"]
-    initial_value = None if initial_value is None else int(initial_value)
+    initial_value = None if initial_value is None else float(initial_value)
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
     num_utterances = int(args["--num-utterances"])
@@ -119,8 +119,9 @@ if __name__ == "__main__":
 
         # save
         librosa.output.write_wav(dst_wav_path, waveform, sr=hparams.sample_rate)
-        librosa.output.write_wav(target_wav_path, P.inv_mulaw_quantize(x),
-                                 sr=hparams.sample_rate)
+        if hparams.mulaw:
+            x = P.inv_mulaw_quantize(x)
+        librosa.output.write_wav(target_wav_path, x, sr=hparams.sample_rate)
 
         # log
         if output_html:

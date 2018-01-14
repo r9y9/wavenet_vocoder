@@ -93,12 +93,20 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         c = Variable(torch.FloatTensor(c.T).unsqueeze(0))
 
     if initial_value is None:
-        initial_value = P.mulaw_quantize(0, hparams.quantize_channels)  # dummy silence
-    assert initial_value >= 0 and initial_value < hparams.quantize_channels
+        if hparams.mulaw:
+            initial_value = P.mulaw_quantize(0, hparams.quantize_channels)  # dummy silence
+        else:
+            initial_value = 0.0
 
-    initial_input = np_utils.to_categorical(
-        initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
-    initial_input = Variable(torch.from_numpy(initial_input)).view(1, 1, hparams.quantize_channels)
+    if hparams.mulaw:
+        assert initial_value >= 0 and initial_value < hparams.quantize_channels
+        initial_input = np_utils.to_categorical(
+            initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
+        initial_input = Variable(torch.from_numpy(initial_input)).view(
+            1, 1, hparams.quantize_channels)
+    else:
+        initial_input = Variable(torch.zeros(1, 1, 1)).fill_(initial_value)
+
     g = None if g is None else Variable(torch.LongTensor([g]))
     if use_cuda:
         initial_input = initial_input.cuda()
@@ -107,8 +115,12 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
 
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
-    y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-    y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+
+    if hparams.mulaw:
+        y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+    else:
+        y_hat = y_hat.view(-1).cpu().data.numpy()
 
     return y_hat
 
@@ -121,7 +133,7 @@ if __name__ == "__main__":
 
     length = int(args["--length"])
     initial_value = args["--initial-value"]
-    initial_value = None if initial_value is None else int(initial_value)
+    initial_value = None if initial_value is None else float(initial_value)
     conditional_path = args["--conditional"]
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
