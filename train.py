@@ -752,8 +752,21 @@ def restore_parts(path, model):
     state = torch.load(path)["state_dict"]
     model_dict = model.state_dict()
     valid_state_dict = {k: v for k, v in state.items() if k in model_dict}
-    model_dict.update(valid_state_dict)
-    model.load_state_dict(model_dict)
+
+    try:
+        model_dict.update(valid_state_dict)
+        model.load_state_dict(model_dict)
+    except RuntimeError as e:
+        # there should be invalid size of weight(s), so load them per parameter
+        print(str(e))
+        model_dict = model.state_dict()
+        for k, v in valid_state_dict.items():
+            model_dict[k] = v
+            try:
+                model.load_state_dict(model_dict)
+            except RuntimeError as e:
+                print(str(e))
+                warn("{}: may contain invalid size of weight. skipping...".format(k))
 
 
 def get_data_loaders(data_root, speaker_id, test_shuffle=True):
