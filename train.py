@@ -286,11 +286,14 @@ class ExponentialMovingAverage(object):
 
 def clone_as_averaged_model(model, ema):
     assert ema is not None
-    model = model.clone()
-    for name, param in model.named_parameters():
+    averaged_model = build_model()
+    if use_cuda:
+        averaged_model = averaged_model.cuda()
+    averaged_model.load_state_dict(model.state_dict())
+    for name, param in averaged_model.named_parameters():
         if name in ema.shadow:
             param.data = ema.shadow[name].clone()
-    return model
+    return averaged_model
 
 
 class MaskedCrossEntropyLoss(nn.Module):
