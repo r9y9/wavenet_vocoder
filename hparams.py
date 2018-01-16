@@ -99,6 +99,10 @@ hparams = tf.contrib.training.HParams(
     # if both are None, then full audio samples are used
     max_time_sec=None,
     max_time_steps=8000,
+    # Hold moving averaged parameters and use them for evaluation
+    exponential_moving_average=True,
+    # averaged = decay * averaged + (1 - decay) * x
+    ema_decay=0.9999,
 
     # Save
     # per-step intervals

@@ -268,6 +268,31 @@ def sequence_mask(sequence_length, max_len=None):
     return (seq_range_expand < seq_length_expand).float()
 
 
+# https://discuss.pytorch.org/t/how-to-apply-exponential-moving-average-decay-for-variables/10856/4
+# https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
+class ExponentialMovingAverage(object):
+    def __init__(self, decay):
+        self.decay = decay
+        self.shadow = {}
+
+    def register(self, name, val):
+        self.shadow[name] = val.clone()
+
+    def update(self, name, x):
+        assert name in self.shadow
+        update_delta = self.shadow[name] - x
+        self.shadow[name] -= (1.0 - self.decay) * update_delta
+
+
+def clone_as_averaged_model(model, ema):
+    assert ema is not None
+    model = model.clone()
+    for name, param in model.named_parameters():
+        if name in ema.shadow:
+            param.data = ema.shadow[name].clone()
+    return model
+
+
 class MaskedCrossEntropyLoss(nn.Module):
     def __init__(self):
         super(MaskedCrossEntropyLoss, self).__init__()
@@ -448,7 +473,11 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
+def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema=None):
+    if ema is not None:
+        print("Using averaged model for evaluation")
+        model = clone_as_averaged_model(model, ema)
+
     model.eval()
     idx = np.random.randint(0, len(y))
     length = input_lengths[idx].data.cpu().numpy()[0]
@@ -554,7 +583,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
 def __train_step(phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
                  x, y, c, g, input_lengths,
-                 checkpoint_dir, eval_dir=None, do_eval=False):
+                 checkpoint_dir, eval_dir=None, do_eval=False, ema=None):
     sanity_check(model, c, g)
 
     # x : (B, C, T)
@@ -610,11 +639,11 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     if train and step > 0 and step % hparams.checkpoint_interval == 0:
         save_states(step, writer, y_hat, y, input_lengths, checkpoint_dir)
-        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch)
+        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema)
 
     if do_eval:
         # NOTE: use train step (i.e., global_step) for filename
-        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir)
+        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema)
 
     # Update
     if train:
@@ -622,6 +651,11 @@ def __train_step(phase, epoch, global_step, global_test_step,
         if clip_thresh > 0:
             grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), clip_thresh)
         optimizer.step()
+        # update moving average
+        if ema is not None:
+            for name, param in model.named_parameters():
+                if name in ema.shadow:
+                    ema.update(name, param.data)
 
     # Logs
     writer.add_scalar("{} loss".format(phase), float(loss.data[0]), step)
@@ -641,6 +675,14 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
         criterion = MaskedCrossEntropyLoss()
     else:
         criterion = DiscretizedMixturelogisticLoss()
+
+    if hparams.exponential_moving_average:
+        ema = ExponentialMovingAverage(hparams.ema_decay)
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                ema.register(name, param.data)
+    else:
+        ema = None
 
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
@@ -670,7 +712,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 running_loss += __train_step(
                     phase, global_epoch, global_step, global_test_step, model,
                     optimizer, writer, criterion, x, y, c, g, input_lengths,
-                    checkpoint_dir, eval_dir, do_eval)
+                    checkpoint_dir, eval_dir, do_eval, ema)
 
                 # update global state
                 if train:
@@ -687,7 +729,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
         global_epoch += 1
 
 
-def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
+def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema=None):
     checkpoint_path = join(
         checkpoint_dir, "checkpoint_step{:09d}.pth".format(global_step))
     optimizer_state = optimizer.state_dict() if hparams.save_optimizer_state else None
@@ -700,6 +742,19 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
         "global_test_step": global_test_step,
     }, checkpoint_path)
     print("Saved checkpoint:", checkpoint_path)
+
+    if ema is not None:
+        averaged_model = clone_as_averaged_model(model, ema)
+        checkpoint_path = join(
+            checkpoint_dir, "checkpoint_step{:09d}_ema.pth".format(global_step))
+        torch.save({
+            "state_dict": averaged_model.state_dict(),
+            "optimizer": optimizer_state,
+            "global_step": step,
+            "global_epoch": epoch,
+            "global_test_step": global_test_step,
+        }, checkpoint_path)
+        print("Saved averaged checkpoint:", checkpoint_path)
 
 
 def build_model():
