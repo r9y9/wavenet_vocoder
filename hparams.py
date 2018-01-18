@@ -34,12 +34,18 @@ hparams = tf.contrib.training.HParams(
     # this is only valid for mulaw is True
     silence_threshold=2,
     num_mels=80,
+    fmin=125,
+    fmax=7600,
     fft_size=1024,
     # shift can be specified by either hop_size or frame_shift_ms
     hop_size=256,
     frame_shift_ms=None,
     min_level_db=-100,
     ref_level_db=20,
+    # mel-spectrogram is normalized to [0, 1] for each utterance and clipping may
+    # happen depends on min_level_db and ref_level_db, causing clipping noise.
+    # If False, assertion is added to ensure no clipping happens.
+    allow_clipping_in_normalization=False,
 
     # Model:
     # This should equal to `quantize_channels` if mu-law quantize enabled
