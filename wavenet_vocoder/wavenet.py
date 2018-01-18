@@ -11,7 +11,7 @@ from torch.nn import functional as F
 
 from deepvoice3_pytorch.modules import Embedding
 
-from .modules import Conv1d1x1, ResidualConv1dGLU
+from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
 
 
@@ -122,14 +122,11 @@ class WaveNet(nn.Module):
             self.upsample_conv = nn.ModuleList()
             for s in upsample_scales:
                 freq_axis_padding = (freq_axis_kernel_size - 1) // 2
-                convt = nn.ConvTranspose2d(1, 1, kernel_size=(
-                    freq_axis_kernel_size, s), padding=(freq_axis_padding, 0),
-                    dilation=1, stride=(1, s))
-                convt.bias.data.zero_()
-                convt.weight.data.fill_(1.0 / freq_axis_kernel_size)
+                convt = ConvTranspose2d(1, 1, (freq_axis_kernel_size, s),
+                                        padding=(freq_axis_padding, 0),
+                                        dilation=1, stride=(1, s),
+                                        weight_normalization=weight_normalization)
                 self.upsample_conv.append(convt)
-                # Is this non-lineality necessary?
-                # self.upsample_conv.append(nn.ReLU(inplace=True))
         else:
             self.upsample_conv = None
 
