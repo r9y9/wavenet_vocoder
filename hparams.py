@@ -51,8 +51,8 @@ hparams = tf.contrib.training.HParams(
     # This should equal to `quantize_channels` if mu-law quantize enabled
     # otherwise num_mixture * 3 (pi, mean, log_scale)
     out_channels=10 * 3,
-    layers=20,
-    stacks=2,
+    layers=24,
+    stacks=4,
     residual_channels=512,
     gate_channels=512,  # split into 2 gropus internally for gated activation
     skip_out_channels=256,
@@ -90,7 +90,7 @@ hparams = tf.contrib.training.HParams(
     # Loss
 
     # Training:
-    batch_size=4,
+    batch_size=2,
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
@@ -100,7 +100,7 @@ hparams = tf.contrib.training.HParams(
     lr_schedule_kwargs={},  # {"anneal_rate": 0.5, "anneal_interval": 50000},
     nepochs=2000,
     weight_decay=0.0,
-    clip_thresh=1.0,
+    clip_thresh=-1,
     # max time steps can either be specified as sec or steps
     # This is needed for those who don't have huge GPU memory...
     # if both are None, then full audio samples are used
