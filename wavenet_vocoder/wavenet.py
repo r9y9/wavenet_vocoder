@@ -127,6 +127,9 @@ class WaveNet(nn.Module):
                                         dilation=1, stride=(1, s),
                                         weight_normalization=weight_normalization)
                 self.upsample_conv.append(convt)
+                # assuming we use [0, 1] scaled features
+                # this should avoid non-negative upsampling output
+                self.upsample_conv.append(nn.ReLU(inplace=True))
         else:
             self.upsample_conv = None
 
