@@ -10,6 +10,8 @@ from hparams import hparams
 from os.path import exists
 import librosa
 
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
+
 from hparams import hparams
 
 
@@ -70,12 +72,26 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
         wav, _ = librosa.effects.trim(wav, top_db=20)
 
     # Mu-law quantize
-    quantized = P.mulaw_quantize(wav)
+    if is_mulaw_quantize(hparams.input_type):
+        # [0, quantize_channels)
+        out = P.mulaw_quantize(wav, hparams.quantize_channels)
 
-    # Trim silences
-    start, end = audio.start_and_end_indices(quantized, hparams.silence_threshold)
-    quantized = quantized[start:end]
-    wav = wav[start:end]
+        # Trim silences
+        start, end = audio.start_and_end_indices(out, hparams.silence_threshold)
+        wav = wav[start:end]
+        out = out[start:end]
+        constant_values = P.mulaw_quantize(0, hparams.quantize_channels)
+        out_dtype = np.int16
+    elif is_mulaw(hparams.input_type):
+        # [-1, 1]
+        out = P.mulaw(wav, hparams.quantize_channels)
+        constant_values = P.mulaw(0.0, hparams.quantize_channels)
+        out_dtype = np.float32
+    else:
+        # [-1, 1]
+        out = wav
+        constant_values = 0.0
+        out_dtype = np.float32
 
     # Compute a mel-scale spectrogram from the trimmed wav:
     # (N, D)
@@ -85,24 +101,23 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
     l, r = audio.lws_pad_lr(wav, hparams.fft_size, audio.get_hop_size())
 
     # zero pad for quantized signal
-    quantized = np.pad(quantized, (l, r), mode="constant",
-                       constant_values=P.mulaw_quantize(0))
+    out = np.pad(out, (l, r), mode="constant", constant_values=constant_values)
     N = mel_spectrogram.shape[0]
-    assert len(quantized) >= N * audio.get_hop_size()
+    assert len(out) >= N * audio.get_hop_size()
 
     # time resolution adjastment
     # ensure length of raw audio is multiple of hop_size so that we can use
     # transposed convolution to upsample
-    quantized = quantized[:N * audio.get_hop_size()]
-    assert len(quantized) % audio.get_hop_size() == 0
+    out = out[:N * audio.get_hop_size()]
+    assert len(out) % audio.get_hop_size() == 0
 
-    timesteps = len(quantized)
+    timesteps = len(out)
 
     # Write the spectrograms to disk:
     audio_filename = 'cmu_arctic-audio-%05d.npy' % index
     mel_filename = 'cmu_arctic-mel-%05d.npy' % index
     np.save(os.path.join(out_dir, audio_filename),
-            quantized.astype(np.int16), allow_pickle=False)
+            out.astype(out_dtype), allow_pickle=False)
     np.save(os.path.join(out_dir, mel_filename),
             mel_spectrogram.astype(np.float32), allow_pickle=False)
 

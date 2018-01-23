@@ -11,7 +11,8 @@ from torch.nn import functional as F
 
 from deepvoice3_pytorch.modules import Embedding
 
-from .modules import Conv1d1x1, ResidualConv1dGLU
+from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
+from .mixture import sample_from_discretized_mix_logistic
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -58,9 +59,13 @@ def receptive_field_size(total_layers, num_cycles, kernel_size,
 
 class WaveNet(nn.Module):
     """WaveNet
+
+    Args:
+        scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
+          quantized one-hot vector is expected.
     """
 
-    def __init__(self, labels=256, layers=20, stacks=2,
+    def __init__(self, out_channels=256, layers=20, stacks=2,
                  residual_channels=512,
                  gate_channels=512,
                  skip_out_channels=512,
@@ -70,13 +75,19 @@ class WaveNet(nn.Module):
                  upsample_conditional_features=False,
                  upsample_scales=None,
                  freq_axis_kernel_size=3,
+                 scalar_input=False,
                  ):
         super(WaveNet, self).__init__()
-        self.labels = labels
+        self.scalar_input = scalar_input
+        self.out_channels = out_channels
         self.cin_channels = cin_channels
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
-        self.first_conv = Conv1d1x1(labels, residual_channels)
+        if scalar_input:
+            self.first_conv = Conv1d1x1(1, residual_channels)
+        else:
+            self.first_conv = Conv1d1x1(out_channels, residual_channels)
+
         self.conv_layers = nn.ModuleList()
         for layer in range(layers):
             dilation = 2**(layer % layers_per_stack)
@@ -95,7 +106,7 @@ class WaveNet(nn.Module):
             Conv1d1x1(skip_out_channels, skip_out_channels,
                       weight_normalization=weight_normalization),
             nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, labels,
+            Conv1d1x1(skip_out_channels, out_channels,
                       weight_normalization=weight_normalization),
         ])
 
@@ -111,14 +122,14 @@ class WaveNet(nn.Module):
             self.upsample_conv = nn.ModuleList()
             for s in upsample_scales:
                 freq_axis_padding = (freq_axis_kernel_size - 1) // 2
-                convt = nn.ConvTranspose2d(1, 1, kernel_size=(
-                    freq_axis_kernel_size, s), padding=(freq_axis_padding, 0),
-                    dilation=1, stride=(1, s))
-                convt.bias.data.zero_()
-                convt.weight.data.fill_(1.0 / freq_axis_kernel_size)
+                convt = ConvTranspose2d(1, 1, (freq_axis_kernel_size, s),
+                                        padding=(freq_axis_padding, 0),
+                                        dilation=1, stride=(1, s),
+                                        weight_normalization=weight_normalization)
                 self.upsample_conv.append(convt)
-                # Is this non-lineality necessary?
-                # self.upsample_conv.append(nn.ReLU(inplace=True))
+                # assuming we use [0, 1] scaled features
+                # this should avoid non-negative upsampling output
+                self.upsample_conv.append(nn.ReLU(inplace=True))
         else:
             self.upsample_conv = None
 
@@ -140,7 +151,7 @@ class WaveNet(nn.Module):
             softmax (bool): Whether applies softmax or not.
 
         Returns:
-            Variable: outupt, shape B x labels x T
+            Variable: outupt, shape B x out_channels x T
         """
         # Expand global conditioning features to all time steps
         B, _, T = x.size()
@@ -199,10 +210,11 @@ class WaveNet(nn.Module):
             tqdm (lamda) : tqdm
             softmax (bool) : Whether applies softmax or not
             quantize (bool): Whether quantize softmax output before feeding the
-              network output to input for the next time step.
+              network output to input for the next time step. TODO: rename
 
         Returns:
-            Variable: Generated one-hot encoded samples. B x C x T
+            Variable: Generated one-hot encoded samples. B x C x T　
+              or scaler vector B x 1 x T
         """
         self.clear_buffer()
         B = 1
@@ -210,8 +222,13 @@ class WaveNet(nn.Module):
         # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
         # batch forward due to linealized convolution
         if test_inputs is not None:
-            if test_inputs.size(1) == self.labels:
-                test_inputs = test_inputs.transpose(1, 2).contiguous()
+            if self.scalar_input:
+                if test_inputs.size(1) == 1:
+                    test_inputs = test_inputs.transpose(1, 2).contiguous()
+            else:
+                if test_inputs.size(1) == self.out_channels:
+                    test_inputs = test_inputs.transpose(1, 2).contiguous()
+
             B = test_inputs.size(0)
             if T is None:
                 T = test_inputs.size(1)
@@ -243,13 +260,16 @@ class WaveNet(nn.Module):
 
         outputs = []
         if initial_input is None:
-            initial_input = Variable(torch.zeros(B, 1, self.labels))
-            initial_input[:, :, 127] = 1  # TODO: is this ok?
+            if self.scalar_input:
+                initial_input = Variable(torch.zeros(B, 1, 1))
+            else:
+                initial_input = Variable(torch.zeros(B, 1, self.out_channels))
+                initial_input[:, :, 127] = 1  # TODO: is this ok?
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
                 initial_input = initial_input.cuda()
         else:
-            if initial_input.size(1) == self.labels:
+            if initial_input.size(1) == self.out_channels:
                 initial_input = initial_input.transpose(1, 2).contiguous()
 
         current_input = initial_input
@@ -277,12 +297,16 @@ class WaveNet(nn.Module):
                 except AttributeError:
                     x = f(x)
 
-            x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
-            if quantize:
-                sample = np.random.choice(
-                    np.arange(self.labels), p=x.view(-1).data.cpu().numpy())
-                x.zero_()
-                x[:, sample] = 1.0
+            # Generate next input by sampling
+            if self.scalar_input:
+                x = sample_from_discretized_mix_logistic(x.view(B, -1, 1))
+            else:
+                x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
+                if quantize:
+                    sample = np.random.choice(
+                        np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
+                    x.zero_()
+                    x[:, sample] = 1.0
             outputs += [x]
 
         # T x B x C

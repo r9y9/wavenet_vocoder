@@ -12,7 +12,8 @@ This is still much WIP. See https://github.com/r9y9/wavenet_vocoder/issues/1 for
 
 ## Highlights
 
-- Focus on local and global conditioning of WaveNet, which is essential to use it as a vocoder.
+- Focus on local and global conditioning of WaveNet, which is essential for vocoder.
+- Mixture of logistic distributions loss / sampling (experimental)
 
 ## Requirements
 

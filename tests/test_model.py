@@ -21,7 +21,8 @@ use_cuda = False
 
 # For test
 build_compact_model = partial(WaveNet, layers=4, stacks=2, residual_channels=32,
-                              gate_channels=32, skip_out_channels=32)
+                              gate_channels=32, skip_out_channels=32,
+                              scalar_input=False)
 
 # https://github.com/keras-team/keras/blob/master/keras/utils/np_utils.py
 # copied to avoid keras dependency in tests
@@ -68,7 +69,7 @@ def test_wavenet():
     print(y.size())
 
 
-def _quantized_test_data(sr=4000, N=3000, returns_power=False):
+def _test_data(sr=4000, N=3000, returns_power=False, mulaw=True):
     x, _ = librosa.load(example_audio_file(), sr=sr)
     x, _ = librosa.effects.trim(x, top_db=15)
 
@@ -90,13 +91,16 @@ def _quantized_test_data(sr=4000, N=3000, returns_power=False):
         p = p.reshape(1, 1, -1)
 
     # (T,)
-    x = P.mulaw_quantize(x)
-    x_org = P.inv_mulaw_quantize(x)
-
-    # (C, T)
-    x = to_categorical(x, num_classes=256).T
-    # (1, C, T)
-    x = x.reshape(1, 256, -1).astype(np.float32)
+    if mulaw:
+        x = P.mulaw_quantize(x)
+        x_org = P.inv_mulaw_quantize(x)
+        # (C, T)
+        x = to_categorical(x, num_classes=256).T
+        # (1, C, T)
+        x = x.reshape(1, 256, -1).astype(np.float32)
+    else:
+        x_org = x
+        x = x.reshape(1, 1, -1)
 
     if returns_power:
         return x, x_org, p
@@ -104,10 +108,44 @@ def _quantized_test_data(sr=4000, N=3000, returns_power=False):
     return x, x_org
 
 
+@attr("mixture")
+def test_mixture_wavenet():
+    x, x_org, c = _test_data(returns_power=True, mulaw=False)
+    # 10 mixtures
+    model = build_compact_model(out_channels=3 * 10, cin_channels=1,
+                                scalar_input=True)
+    T = x.shape[-1]
+    print(model.first_conv)
+
+    # scalar input, not one-hot
+    assert x.shape[1] == 1
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    c = Variable(torch.from_numpy(c).contiguous())
+    c = c.cuda() if use_cuda else c
+    print(c.size())
+
+    model.eval()
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, c=c, T=None, tqdm=tqdm)
+
+    assert y_online.size() == x.size()
+
+    y_online2 = model.incremental_forward(
+        test_inputs=None, c=c, T=T, tqdm=tqdm)
+
+    assert y_online2.size() == x.size()
+    print(x.size())
+
+
 @attr("local_conditioning")
 def test_local_conditioning_correctness():
     # condition by power
-    x, x_org, c = _quantized_test_data(returns_power=True)
+    x, x_org, c = _test_data(returns_power=True)
     model = build_compact_model(cin_channels=1)
     assert model.local_conditioning_enabled()
     assert not model.has_speaker_embedding()
@@ -117,7 +155,7 @@ def test_local_conditioning_correctness():
 
     c = Variable(torch.from_numpy(c).contiguous())
     c = c.cuda() if use_cuda else c
-    print(c.size())
+    print(x.size(), c.size())
 
     model.eval()
 
@@ -142,7 +180,7 @@ def test_local_conditioning_correctness():
 @attr("local_conditioning")
 def test_local_conditioning_upsample_correctness():
     # condition by power
-    x, x_org, c = _quantized_test_data(returns_power=True)
+    x, x_org, c = _test_data(returns_power=True)
 
     # downsample by 4
     assert c.shape[-1] % 4 == 0
@@ -159,7 +197,7 @@ def test_local_conditioning_upsample_correctness():
 
     c = Variable(torch.from_numpy(c).contiguous())
     c = c.cuda() if use_cuda else c
-    print(c.size())
+    print(x.size(), c.size())
 
     model.eval()
 
@@ -184,7 +222,7 @@ def test_local_conditioning_upsample_correctness():
 @attr("global_conditioning")
 def test_global_conditioning_correctness():
     # condition by mean power
-    x, x_org, c = _quantized_test_data(returns_power=True)
+    x, x_org, c = _test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
     model = build_compact_model(gin_channels=16, n_speakers=256)
     assert not model.local_conditioning_enabled()
@@ -219,7 +257,7 @@ def test_global_conditioning_correctness():
 
 @attr("local_and_global_conditioning")
 def test_global_and_local_conditioning_correctness():
-    x, x_org, c = _quantized_test_data(returns_power=True)
+    x, x_org, c = _test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
     model = build_compact_model(cin_channels=1, gin_channels=16, n_speakers=256)
     assert model.local_conditioning_enabled()
@@ -275,7 +313,7 @@ def test_incremental_forward_correctness():
         model = model.cuda()
 
     sr = 4000
-    x, x_org = _quantized_test_data(sr=sr, N=3000)
+    x, x_org = _test_data(sr=sr, N=3000)
     x = Variable(torch.from_numpy(x).contiguous())
     x = x.cuda() if use_cuda else x
 

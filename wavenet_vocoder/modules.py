@@ -10,6 +10,18 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 
 
+def ConvTranspose2d(in_channels, out_channels, kernel_size,
+                    weight_normalization=True, **kwargs):
+    freq_axis_kernel_size = kernel_size[0]
+    m = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, **kwargs)
+    m.weight.data.fill_(1.0 / freq_axis_kernel_size)
+    m.bias.data.zero_()
+    if weight_normalization:
+        return nn.utils.weight_norm(m)
+    else:
+        return m
+
+
 def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
     """1-by-1 convolution layer
     """

@@ -50,6 +50,10 @@ from tensorboardX import SummaryWriter
 from matplotlib import cm
 from warnings import warn
 
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw, is_scalar_input
+from wavenet_vocoder.mixture import discretized_mix_logistic_loss
+from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
+
 import audio
 from hparams import hparams, hparams_debug_string
 
@@ -264,6 +268,34 @@ def sequence_mask(sequence_length, max_len=None):
     return (seq_range_expand < seq_length_expand).float()
 
 
+# https://discuss.pytorch.org/t/how-to-apply-exponential-moving-average-decay-for-variables/10856/4
+# https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
+class ExponentialMovingAverage(object):
+    def __init__(self, decay):
+        self.decay = decay
+        self.shadow = {}
+
+    def register(self, name, val):
+        self.shadow[name] = val.clone()
+
+    def update(self, name, x):
+        assert name in self.shadow
+        update_delta = self.shadow[name] - x
+        self.shadow[name] -= (1.0 - self.decay) * update_delta
+
+
+def clone_as_averaged_model(model, ema):
+    assert ema is not None
+    averaged_model = build_model()
+    if use_cuda:
+        averaged_model = averaged_model.cuda()
+    averaged_model.load_state_dict(model.state_dict())
+    for name, param in averaged_model.named_parameters():
+        if name in ema.shadow:
+            param.data = ema.shadow[name].clone()
+    return averaged_model
+
+
 class MaskedCrossEntropyLoss(nn.Module):
     def __init__(self):
         super(MaskedCrossEntropyLoss, self).__init__()
@@ -280,6 +312,27 @@ class MaskedCrossEntropyLoss(nn.Module):
         # (B, T, D)
         mask_ = mask.expand_as(target)
         losses = self.criterion(input, target)
+        return ((losses * mask_).sum()) / mask_.sum()
+
+
+class DiscretizedMixturelogisticLoss(nn.Module):
+    def __init__(self):
+        super(DiscretizedMixturelogisticLoss, self).__init__()
+
+    def forward(self, input, target, lengths=None, mask=None, max_len=None):
+        if lengths is None and mask is None:
+            raise RuntimeError("Should provide either lengths or mask")
+
+        # (B, T, 1)
+        if mask is None:
+            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+
+        # (B, T, 1)
+        mask_ = mask.expand_as(target)
+
+        losses = discretized_mix_logistic_loss(
+            input, target, num_classes=hparams.quantize_channels, reduce=False)
+        assert losses.size() == target.size()
         return ((losses * mask_).sum()) / mask_.sum()
 
 
@@ -362,12 +415,20 @@ def collate_fn(batch):
 
     # (B, T, C)
     # pad for time-axis
-    x_batch = np.array([_pad_2d(np_utils.to_categorical(x[0], num_classes=256),
-                                max_input_len) for x in batch], dtype=np.float32)
+    if is_mulaw_quantize(hparams.input_type):
+        x_batch = np.array([_pad_2d(np_utils.to_categorical(
+            x[0], num_classes=hparams.quantize_channels),
+            max_input_len) for x in batch], dtype=np.float32)
+    else:
+        x_batch = np.array([_pad_2d(x[0].reshape(-1, 1), max_input_len)
+                            for x in batch], dtype=np.float32)
     assert len(x_batch.shape) == 3
 
     # (B, T)
-    y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
+    if is_mulaw_quantize(hparams.input_type):
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
+    else:
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.float32)
     assert len(y_batch.shape) == 2
 
     # (B, T, D)
@@ -388,7 +449,10 @@ def collate_fn(batch):
     # Covnert to channel first i.e., (B, C, T)
     x_batch = torch.FloatTensor(x_batch).transpose(1, 2).contiguous()
     # Add extra axis
-    y_batch = torch.LongTensor(y_batch).unsqueeze(-1).contiguous()
+    if is_mulaw_quantize(hparams.input_type):
+        y_batch = torch.LongTensor(y_batch).unsqueeze(-1).contiguous()
+    else:
+        y_batch = torch.FloatTensor(y_batch).unsqueeze(-1).contiguous()
 
     input_lengths = torch.LongTensor(input_lengths)
 
@@ -412,13 +476,17 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
+def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema=None):
+    if ema is not None:
+        print("Using averaged model for evaluation")
+        model = clone_as_averaged_model(model, ema)
+
     model.eval()
     idx = np.random.randint(0, len(y))
     length = input_lengths[idx].data.cpu().numpy()[0]
 
     # (T,)
-    y_target = y[idx].view(-1).data.cpu().long().numpy()[:length]
+    y_target = y[idx].view(-1).data.cpu().numpy()[:length]
 
     if c is not None:
         c = c[idx, :, :length].unsqueeze(0)
@@ -430,19 +498,35 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir):
         print("Shape of global conditioning features: {}".format(g.size()))
 
     # Dummy silence
-    initial_value = P.mulaw_quantize(0)
+    if is_mulaw_quantize(hparams.input_type):
+        initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+    elif is_mulaw(hparams.input_type):
+        initial_value = P.mulaw(0.0, hparams.quantize_channels)
+    else:
+        initial_value = 0.0
     print("Intial value:", initial_value)
 
     # (C,)
-    initial_input = np_utils.to_categorical(initial_value, num_classes=256).astype(np.float32)
-    initial_input = Variable(torch.from_numpy(initial_input), volatile=True).view(1, 1, 256)
+    if is_mulaw_quantize(hparams.input_type):
+        initial_input = np_utils.to_categorical(
+            initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
+        initial_input = Variable(torch.from_numpy(initial_input)).view(
+            1, 1, hparams.quantize_channels)
+    else:
+        initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
-    y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-    y_hat = P.inv_mulaw_quantize(y_hat)
 
-    y_target = P.inv_mulaw_quantize(y_target)
+    if is_mulaw_quantize(hparams.input_type):
+        y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+    elif is_mulaw(hparams.input_type):
+        y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
+        y_target = P.inv_mulaw(y_target, hparams.quantize_channels)
+    else:
+        y_hat = y_hat.view(-1).cpu().data.numpy()
 
     # Save audio
     os.makedirs(eval_dir, exist_ok=True)
@@ -462,16 +546,29 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     length = input_lengths[idx].data.cpu().numpy()[0]
 
     # (B, C, T)
-    y_hat = y_hat.squeeze(-1)
-    # (B, T)
-    y_hat = F.softmax(y_hat, dim=1).max(1)[1]
+    if y_hat.dim() == 4:
+        y_hat = y_hat.squeeze(-1)
 
-    # (T,)
-    y_hat = y_hat[idx].data.cpu().long().numpy()
-    y = y[idx].view(-1).data.cpu().long().numpy()
+    if is_mulaw_quantize(hparams.input_type):
+        # (B, T)
+        y_hat = F.softmax(y_hat, dim=1).max(1)[1]
 
-    y_hat = P.inv_mulaw_quantize(y_hat)
-    y = P.inv_mulaw_quantize(y)
+        # (T,)
+        y_hat = y_hat[idx].data.cpu().long().numpy()
+        y = y[idx].view(-1).data.cpu().long().numpy()
+
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+        y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
+    else:
+        # (B, T)
+        y_hat = sample_from_discretized_mix_logistic(y_hat)
+        # (T,)
+        y_hat = y_hat[idx].view(-1).data.cpu().numpy()
+        y = y[idx].view(-1).data.cpu().numpy()
+
+        if is_mulaw(hparams.input_type):
+            y_hat = P.inv_mulaw(y_hat, hparams.quantize_channels)
+            y = P.inv_mulaw(y, hparams.quantize_channels)
 
     # Mask by length
     y_hat[length:] = 0
@@ -489,7 +586,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
 def __train_step(phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
                  x, y, c, g, input_lengths,
-                 checkpoint_dir, eval_dir=None, do_eval=False):
+                 checkpoint_dir, eval_dir=None, do_eval=False, ema=None):
     sanity_check(model, c, g)
 
     # x : (B, C, T)
@@ -532,21 +629,24 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     # Apply model
     # NOTE: softmax is handled in F.cross_entrypy_loss
+    # y_hat: (B x C x T)
     y_hat = model(x, c=c, g=g, softmax=False)
 
-    # wee need 4d inputs for spatial cross entropy loss
-    # (B, C, T, 1)
-    y_hat = y_hat.unsqueeze(-1)
-
-    loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
+    if is_mulaw_quantize(hparams.input_type):
+        # wee need 4d inputs for spatial cross entropy loss
+        # (B, C, T, 1)
+        y_hat = y_hat.unsqueeze(-1)
+        loss = criterion(y_hat[:, :, :-1, :], y[:, 1:, :], mask=mask)
+    else:
+        loss = criterion(y_hat[:, :, :-1], y[:, 1:, :], mask=mask)
 
     if train and step > 0 and step % hparams.checkpoint_interval == 0:
         save_states(step, writer, y_hat, y, input_lengths, checkpoint_dir)
-        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch)
+        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema)
 
     if do_eval:
         # NOTE: use train step (i.e., global_step) for filename
-        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir)
+        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema)
 
     # Update
     if train:
@@ -554,6 +654,11 @@ def __train_step(phase, epoch, global_step, global_test_step,
         if clip_thresh > 0:
             grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), clip_thresh)
         optimizer.step()
+        # update moving average
+        if ema is not None:
+            for name, param in model.named_parameters():
+                if name in ema.shadow:
+                    ema.update(name, param.data)
 
     # Logs
     writer.add_scalar("{} loss".format(phase), float(loss.data[0]), step)
@@ -569,7 +674,18 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
     if use_cuda:
         model = model.cuda()
 
-    criterion = MaskedCrossEntropyLoss()
+    if is_mulaw_quantize(hparams.input_type):
+        criterion = MaskedCrossEntropyLoss()
+    else:
+        criterion = DiscretizedMixturelogisticLoss()
+
+    if hparams.exponential_moving_average:
+        ema = ExponentialMovingAverage(hparams.ema_decay)
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                ema.register(name, param.data)
+    else:
+        ema = None
 
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
@@ -599,7 +715,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 running_loss += __train_step(
                     phase, global_epoch, global_step, global_test_step, model,
                     optimizer, writer, criterion, x, y, c, g, input_lengths,
-                    checkpoint_dir, eval_dir, do_eval)
+                    checkpoint_dir, eval_dir, do_eval, ema)
 
                 # update global state
                 if train:
@@ -616,7 +732,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
         global_epoch += 1
 
 
-def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
+def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema=None):
     checkpoint_path = join(
         checkpoint_dir, "checkpoint_step{:09d}.pth".format(global_step))
     optimizer_state = optimizer.state_dict() if hparams.save_optimizer_state else None
@@ -630,9 +746,25 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch):
     }, checkpoint_path)
     print("Saved checkpoint:", checkpoint_path)
 
+    if ema is not None:
+        averaged_model = clone_as_averaged_model(model, ema)
+        checkpoint_path = join(
+            checkpoint_dir, "checkpoint_step{:09d}_ema.pth".format(global_step))
+        torch.save({
+            "state_dict": averaged_model.state_dict(),
+            "optimizer": optimizer_state,
+            "global_step": step,
+            "global_epoch": epoch,
+            "global_test_step": global_test_step,
+        }, checkpoint_path)
+        print("Saved averaged checkpoint:", checkpoint_path)
+
 
 def build_model():
+    if is_mulaw_quantize(hparams.input_type):
+        assert hparams.out_channels == hparams.quantize_channels
     model = getattr(builder, hparams.builder)(
+        out_channels=hparams.out_channels,
         layers=hparams.layers,
         stacks=hparams.stacks,
         residual_channels=hparams.residual_channels,
@@ -647,6 +779,7 @@ def build_model():
         upsample_conditional_features=hparams.upsample_conditional_features,
         upsample_scales=hparams.upsample_scales,
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
+        scalar_input=is_scalar_input(hparams.input_type),
     )
     return model
 
@@ -677,8 +810,21 @@ def restore_parts(path, model):
     state = torch.load(path)["state_dict"]
     model_dict = model.state_dict()
     valid_state_dict = {k: v for k, v in state.items() if k in model_dict}
-    model_dict.update(valid_state_dict)
-    model.load_state_dict(model_dict)
+
+    try:
+        model_dict.update(valid_state_dict)
+        model.load_state_dict(model_dict)
+    except RuntimeError as e:
+        # there should be invalid size of weight(s), so load them per parameter
+        print(str(e))
+        model_dict = model.state_dict()
+        for k, v in valid_state_dict.items():
+            model_dict[k] = v
+            try:
+                model.load_state_dict(model_dict)
+            except RuntimeError as e:
+                print(str(e))
+                warn("{}: may contain invalid size of weight. skipping...".format(k))
 
 
 def get_data_loaders(data_root, speaker_id, test_shuffle=True):
