@@ -26,8 +26,8 @@ hparams = tf.contrib.training.HParams(
     # **NOTE**: if you change the one of the two parameters below, you need to
     # re-run preprocessing before training.
     # **NOTE**: scaler input (raw or mulaw) is experimental. Use it your own risk.
-    input_type="raw",
-    quantize_channels=65536,  # 65536 or 256
+    input_type="mulaw-quantize",
+    quantize_channels=256,  # 65536 or 256
 
     # Audio:
     sample_rate=22050,
@@ -67,7 +67,7 @@ hparams = tf.contrib.training.HParams(
     # otherwise repeat features to adjust time resolution
     upsample_conditional_features=True,
     # should np.prod(upsample_scales) == hop_size
-    upsample_scales=[16, 16],
+    upsample_scales=[4, 4, 4, 4],
     # Freq axis kernel size for upsampling network
     freq_axis_kernel_size=3,
 
