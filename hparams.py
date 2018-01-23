@@ -42,6 +42,12 @@ hparams = tf.contrib.training.HParams(
     frame_shift_ms=None,
     min_level_db=-100,
     ref_level_db=20,
+    # whether to rescale waveform or not.
+    # This is only valid for input_type="raw"
+    # Let x is an input waveform, rescaled waveform y is given by:
+    # y = x / np.abs(x).max() * rescaling_max
+    rescaling=True,
+    rescaling_max=0.999,
     # mel-spectrogram is normalized to [0, 1] for each utterance and clipping may
     # happen depends on min_level_db and ref_level_db, causing clipping noise.
     # If False, assertion is added to ensure no clipping happens.
