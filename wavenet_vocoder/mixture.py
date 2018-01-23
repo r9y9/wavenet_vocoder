@@ -80,10 +80,13 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256, reduce=True):
                                            tf.log(tf.maximum(cdf_delta, 1e-12)),
                                            log_pdf_mid - np.log(127.5))))
     """
+    # TODO: cdf_delta <= 1e-5 actually can happen. How can we choose the value
+    # for num_classes=65536 case? 1e-7? not sure..
     inner_inner_cond = (cdf_delta > 1e-5).float()
+
     inner_inner_out = inner_inner_cond * \
         torch.log(torch.clamp(cdf_delta, min=1e-12)) + \
-        (1. - inner_inner_cond) * (log_pdf_mid - np.log(127.5))
+        (1. - inner_inner_cond) * (log_pdf_mid - np.log((num_classes - 1) / 2))
     inner_cond = (y > 0.999).float()
     inner_out = inner_cond * log_one_minus_cdf_min + (1. - inner_cond) * inner_inner_out
     cond = (y < -0.999).float()
