@@ -54,3 +54,25 @@ def test_mixture():
 
     y = sample_from_discretized_mix_logistic(y_hat)
     print(y.shape)
+
+
+def test_misc():
+    # https://en.wikipedia.org/wiki/Logistic_distribution
+    # what i have learned
+    # m = (x - mu) / s
+    m = Variable(torch.rand(10, 10))
+    log_pdf_mid1 = -2 * torch.log(torch.exp(m / 2) + torch.exp(-m / 2))
+    log_pdf_mid2 = m - 2 * F.softplus(m)
+    assert np.allclose(log_pdf_mid1.data.numpy(), log_pdf_mid2.data.numpy())
+
+    # Edge case for 0
+    plus_in = Variable(torch.rand(10, 10))
+    log_cdf_plus1 = F.sigmoid(m).log()
+    log_cdf_plus2 = m - F.softplus(m)
+    assert np.allclose(log_cdf_plus1.data.numpy(), log_cdf_plus2.data.numpy())
+
+    # Edge case for 255
+    min_in = Variable(torch.rand(10, 10))
+    log_one_minus_cdf_min1 = (1 - F.sigmoid(min_in)).log()
+    log_one_minus_cdf_min2 = -F.softplus(min_in)
+    assert np.allclose(log_one_minus_cdf_min1.data.numpy(), log_one_minus_cdf_min2.data.numpy())
