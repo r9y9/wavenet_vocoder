@@ -23,7 +23,8 @@ def log_sum_exp(x):
     return m + torch.log(torch.sum(torch.exp(x - m2), dim=axis))
 
 
-def discretized_mix_logistic_loss(y_hat, y, num_classes=256, reduce=True):
+def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
+                                  log_scale_min=-7.0, reduce=True):
     """Discretized mixture of logistic distributions loss
 
     Note that it is assumed that input is scaled to [-1, 1].
@@ -44,7 +45,7 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256, reduce=True):
     # unpack parameters. (B, T, num_mixtures) x 3
     logit_probs = y_hat[:, :, :nr_mix]
     means = y_hat[:, :, nr_mix:2 * nr_mix]
-    log_scales = torch.clamp(y_hat[:, :, 2 * nr_mix:3 * nr_mix], min=-7.0)
+    log_scales = torch.clamp(y_hat[:, :, 2 * nr_mix:3 * nr_mix], min=log_scale_min)
 
     # B x T x 1 -> B x T x num_mixtures
     y = y.expand_as(means)
@@ -109,7 +110,7 @@ def to_one_hot(tensor, n, fill_with=1.):
     return Variable(one_hot)
 
 
-def sample_from_discretized_mix_logistic(y):
+def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
     """
     Args:
         y (Variable): B x C x T
@@ -134,7 +135,7 @@ def sample_from_discretized_mix_logistic(y):
     # select logistic parameters
     means = torch.sum(y[:, :, nr_mix:2 * nr_mix] * one_hot, dim=-1)
     log_scales = torch.clamp(torch.sum(
-        y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1), min=-7.0)
+        y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1), min=log_scale_min)
     # sample from logistic & clip to interval
     # we don't actually round to the nearest 8bit value when sampling
     u = Variable(means.data.new(means.size()).uniform_(1e-5, 1.0 - 1e-5))

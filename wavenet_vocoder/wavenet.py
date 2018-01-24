@@ -194,7 +194,8 @@ class WaveNet(nn.Module):
 
     def incremental_forward(self, initial_input=None, c=None, g=None,
                             T=100, test_inputs=None,
-                            tqdm=lambda x: x, softmax=True, quantize=True):
+                            tqdm=lambda x: x, softmax=True, quantize=True,
+                            log_scale_min=-7.0):
         """Incremental forward
 
         Due to linearized convolutions, inputs of shape (B x C x T) are reshaped
@@ -299,7 +300,8 @@ class WaveNet(nn.Module):
 
             # Generate next input by sampling
             if self.scalar_input:
-                x = sample_from_discretized_mix_logistic(x.view(B, -1, 1))
+                x = sample_from_discretized_mix_logistic(
+                    x.view(B, -1, 1), log_scale_min=log_scale_min)
             else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:

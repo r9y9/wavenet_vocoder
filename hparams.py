@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 # NOTE: If you want full control for model architecture. please take a look
 # at the code and change whatever you want. Some hyper parameters are hardcoded.
@@ -52,6 +53,9 @@ hparams = tf.contrib.training.HParams(
     # happen depends on min_level_db and ref_level_db, causing clipping noise.
     # If False, assertion is added to ensure no clipping happens.
     allow_clipping_in_normalization=False,
+
+    # Mixture of logistic distributions:
+    log_scale_min=float(np.log(0.05)),
 
     # Model:
     # This should equal to `quantize_channels` if mu-law quantize enabled

@@ -331,7 +331,8 @@ class DiscretizedMixturelogisticLoss(nn.Module):
         mask_ = mask.expand_as(target)
 
         losses = discretized_mix_logistic_loss(
-            input, target, num_classes=hparams.quantize_channels, reduce=False)
+            input, target, num_classes=hparams.quantize_channels,
+            log_scale_min=hparams.log_scale_min, reduce=False)
         assert losses.size() == target.size()
         return ((losses * mask_).sum()) / mask_.sum()
 
@@ -516,7 +517,8 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
         initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
     y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True)
+        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
+        log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
@@ -561,7 +563,8 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
     else:
         # (B, T)
-        y_hat = sample_from_discretized_mix_logistic(y_hat)
+        y_hat = sample_from_discretized_mix_logistic(
+            y_hat, log_scale_min=hparams.log_scale_min)
         # (T,)
         y_hat = y_hat[idx].view(-1).data.cpu().numpy()
         y = y[idx].view(-1).data.cpu().numpy()
