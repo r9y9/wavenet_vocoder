@@ -14,23 +14,12 @@ type = "index"
 
 This page provides audio samples for the open source implementation of the WaveNet vocoder.
 
-1. WaveNet vocoder conditioned on mel-spectrogram
-2. WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding
+1. WaveNet vocoder conditioned on mel-spectrogram (8-bit mu-law)
+2. WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (8-bit mu-law)
+3. WaveNet vocoder conditioned on mel-spectrogram (16-bit linear PCM)
 3. (Not yet) DeepVoice3 + WaveNet vocoder
 
-## WaveNet vocoder conditioned on mel-spectrogram
-
-| key                         | value |
-|---------------------------------|------------------------------------------------------|
-| Data                            | CMU ARCTIC (`clb`) (1183 for training, 50 for testing) |
-| Sampling frequency  | 16kHz |
-| Local conditioning            | 80-dim mel-spectrogram                               |
-| Global conditioning            | N/A                              |
-| Total layers                    | 16                                                   |
-| Num cycles                      | 2                                                    |
-| Receptive field (samples / ms) | 1021 / 63.8                                          |
-
-<br/>
+## WaveNet vocoder conditioned on mel-spectrogram (8-bit mu-law)
 
 Samples from a model trained for 100k steps (~22 hours)
 
@@ -84,20 +73,22 @@ Your browser does not support the audio element.
 Your browser does not support the audio element.
 </audio>
 
-## WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding
-
 | key                         | value |
 |---------------------------------|------------------------------------------------------|
-| Data                            | CMU ARCTIC (7580 for training, 350 for testing) |
+| Data                            | CMU ARCTIC (`clb`) (1183 for training, 50 for testing) |
+| Input type | 8-bit mu-law encoded one-hot vector |
+| Sampling frequency  | 16kHz |
 | Local conditioning            | 80-dim mel-spectrogram                               |
-| Global conditioning            | 16-dim speaker embedding [^1]                              |
+| Hop size | 256 |
+| Global conditioning            | N/A                              |
 | Total layers                    | 16                                                   |
 | Num cycles                      | 2                                                    |
+| Residual / Gate / Skip-out channels | 512 / 512 / 256  |
 | Receptive field (samples / ms) | 1021 / 63.8                                          |
+| Number of upsampling layers | N/A |
 
-[^1]: Note that mel-spectrogram used in local conditioning is dependent on speaker characteristics, so we cannot simply change the speaker identity of the generated audio samples using the model. It should work without speaker embedding, but it might have helped training speed.
 
-<br/>
+## WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (8-bit mu-law)
 
 Samples from a model trained for 200k steps (~44 hours)
 
@@ -188,6 +179,87 @@ Your browser does not support the audio element.
 <source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
+
+| key                         | value |
+|---------------------------------|------------------------------------------------------|
+| Data                            | CMU ARCTIC (7580 for training, 350 for testing) |
+| Input type | 8-bit mu-law encoded one-hot vector |
+| Local conditioning            | 80-dim mel-spectrogram                               |
+| Hop size | 256 |
+| Global conditioning            | 16-dim speaker embedding [^1]                              |
+| Total layers                    | 16                                                   |
+| Num cycles                      | 2                                                    |
+| Residual / Gate / Skip-out channels | 512 / 512 / 256  |
+| Receptive field (samples / ms) | 1021 / 63.8                                          |
+| Number of upsampling layers | N/A |
+
+[^1]: Note that mel-spectrogram used in local conditioning is dependent on speaker characteristics, so we cannot simply change the speaker identity of the generated audio samples using the model. It should work without speaker embedding, but it might have helped training speed.
+
+## WaveNet vocoder conditioned on mel-spectrogram (16-bit linear PCM)
+
+Samples from a model trained for over 300k steps.
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/0_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/1_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/2_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/3_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/4_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/5_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/6_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/7_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/8_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
+| key                         | value |
+|---------------------------------|------------------------------------------------------|
+| Data                            | LJSpeech (12522 for training, 578 for testing) |
+| Input type | 16-bit linear PCM |
+| Sampling frequency  | 22.5kHz |
+| Local conditioning            | 80-dim mel-spectrogram                               |
+| Hop size | 256 |
+| Global conditioning            | N/A                              |
+| Total layers                    | 24                                                   |
+| Num cycles                      | 4                                                   |
+| Residual / Gate / Skip-out channels | 512 / 512 / 256  |
+| Receptive field (samples / ms) | 505 / 22.9                                        |
+| Numer of mixtures  |  10  |
+| Number of upsampling layers | 4 |
+
+<br/>
 
 ## DeepVoice3 + WaveNet vocoder
 
