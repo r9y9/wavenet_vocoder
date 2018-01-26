@@ -41,60 +41,13 @@
 <p>This page provides audio samples for the open source implementation of the WaveNet vocoder.</p>
 
 <ol>
-<li>WaveNet vocoder conditioned on mel-spectrogram</li>
-<li>WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding</li>
+<li>WaveNet vocoder conditioned on mel-spectrogram (8-bit mu-law)</li>
+<li>WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (8-bit mu-law)</li>
+<li>WaveNet vocoder conditioned on mel-spectrogram (16-bit linear PCM)</li>
 <li>(Not yet) DeepVoice3 + WaveNet vocoder</li>
 </ol>
 
-<h2 id="wavenet-vocoder-conditioned-on-mel-spectrogram">WaveNet vocoder conditioned on mel-spectrogram</h2>
-
-<table>
-<thead>
-<tr>
-<th>key</th>
-<th>value</th>
-</tr>
-</thead>
-
-<tbody>
-<tr>
-<td>Data</td>
-<td>CMU ARCTIC (<code>clb</code>) (1183 for training, 50 for testing)</td>
-</tr>
-
-<tr>
-<td>Sampling frequency</td>
-<td>16kHz</td>
-</tr>
-
-<tr>
-<td>Local conditioning</td>
-<td>80-dim mel-spectrogram</td>
-</tr>
-
-<tr>
-<td>Global conditioning</td>
-<td>N/A</td>
-</tr>
-
-<tr>
-<td>Total layers</td>
-<td>16</td>
-</tr>
-
-<tr>
-<td>Num cycles</td>
-<td>2</td>
-</tr>
-
-<tr>
-<td>Receptive field (samples / ms)</td>
-<td>1021 / 63.8</td>
-</tr>
-</tbody>
-</table>
-
-<p><br/></p>
+<h2 id="wavenet-vocoder-conditioned-on-mel-spectrogram-8-bit-mu-law">WaveNet vocoder conditioned on mel-spectrogram (8-bit mu-law)</h2>
 
 <p>Samples from a model trained for 100k steps (~22 hours)</p>
 
@@ -148,8 +101,6 @@ Your browser does not support the audio element.
 Your browser does not support the audio element.
 </audio></p>
 
-<h2 id="wavenet-vocoder-conditioned-on-mel-spectrogram-and-speaker-embedding">WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding</h2>
-
 <table>
 <thead>
 <tr>
@@ -161,7 +112,17 @@ Your browser does not support the audio element.
 <tbody>
 <tr>
 <td>Data</td>
-<td>CMU ARCTIC (7580 for training, 350 for testing)</td>
+<td>CMU ARCTIC (<code>clb</code>) (1183 for training, 50 for testing)</td>
+</tr>
+
+<tr>
+<td>Input type</td>
+<td>8-bit mu-law encoded one-hot vector</td>
+</tr>
+
+<tr>
+<td>Sampling frequency</td>
+<td>16kHz</td>
 </tr>
 
 <tr>
@@ -170,8 +131,13 @@ Your browser does not support the audio element.
 </tr>
 
 <tr>
+<td>Hop size</td>
+<td>256</td>
+</tr>
+
+<tr>
 <td>Global conditioning</td>
-<td>16-dim speaker embedding <sup class="footnote-ref" id="fnref:1"><a rel="footnote" href="#fn:1">1</a></sup></td>
+<td>N/A</td>
 </tr>
 
 <tr>
@@ -185,13 +151,23 @@ Your browser does not support the audio element.
 </tr>
 
 <tr>
+<td>Residual / Gate / Skip-out channels</td>
+<td>512 / 512 / 256</td>
+</tr>
+
+<tr>
 <td>Receptive field (samples / ms)</td>
 <td>1021 / 63.8</td>
+</tr>
+
+<tr>
+<td>Number of upsampling layers</td>
+<td>N/A</td>
 </tr>
 </tbody>
 </table>
 
-<p><br/></p>
+<h2 id="wavenet-vocoder-conditioned-on-mel-spectrogram-and-speaker-embedding-8-bit-mu-law">WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (8-bit mu-law)</h2>
 
 <p>Samples from a model trained for 200k steps (~44 hours)</p>
 
@@ -278,6 +254,189 @@ Your browser does not support the audio element.
 <source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000200000_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio></p>
+
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>value</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Data</td>
+<td>CMU ARCTIC (7580 for training, 350 for testing)</td>
+</tr>
+
+<tr>
+<td>Input type</td>
+<td>8-bit mu-law encoded one-hot vector</td>
+</tr>
+
+<tr>
+<td>Local conditioning</td>
+<td>80-dim mel-spectrogram</td>
+</tr>
+
+<tr>
+<td>Hop size</td>
+<td>256</td>
+</tr>
+
+<tr>
+<td>Global conditioning</td>
+<td>16-dim speaker embedding <sup class="footnote-ref" id="fnref:1"><a rel="footnote" href="#fn:1">1</a></sup></td>
+</tr>
+
+<tr>
+<td>Total layers</td>
+<td>16</td>
+</tr>
+
+<tr>
+<td>Num cycles</td>
+<td>2</td>
+</tr>
+
+<tr>
+<td>Residual / Gate / Skip-out channels</td>
+<td>512 / 512 / 256</td>
+</tr>
+
+<tr>
+<td>Receptive field (samples / ms)</td>
+<td>1021 / 63.8</td>
+</tr>
+
+<tr>
+<td>Number of upsampling layers</td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="wavenet-vocoder-conditioned-on-mel-spectrogram-16-bit-linear-pcm">WaveNet vocoder conditioned on mel-spectrogram (16-bit linear PCM)</h2>
+
+<p>Samples from a model trained for over 400k steps.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/0_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/1_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/2_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/3_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/4_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/5_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/6_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/7_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/8_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>value</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Data</td>
+<td>LJSpeech (12522 for training, 578 for testing)</td>
+</tr>
+
+<tr>
+<td>Input type</td>
+<td>16-bit linear PCM</td>
+</tr>
+
+<tr>
+<td>Sampling frequency</td>
+<td>22.5kHz</td>
+</tr>
+
+<tr>
+<td>Local conditioning</td>
+<td>80-dim mel-spectrogram</td>
+</tr>
+
+<tr>
+<td>Hop size</td>
+<td>256</td>
+</tr>
+
+<tr>
+<td>Global conditioning</td>
+<td>N/A</td>
+</tr>
+
+<tr>
+<td>Total layers</td>
+<td>24</td>
+</tr>
+
+<tr>
+<td>Num cycles</td>
+<td>4</td>
+</tr>
+
+<tr>
+<td>Residual / Gate / Skip-out channels</td>
+<td>512 / 512 / 256</td>
+</tr>
+
+<tr>
+<td>Receptive field (samples / ms)</td>
+<td>505 / 22.9</td>
+</tr>
+
+<tr>
+<td>Numer of mixtures</td>
+<td>10</td>
+</tr>
+
+<tr>
+<td>Number of upsampling layers</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+
+<p><br/></p>
 
 <h2 id="deepvoice3-wavenet-vocoder">DeepVoice3 + WaveNet vocoder</h2>
 
