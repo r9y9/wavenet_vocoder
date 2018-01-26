@@ -7,7 +7,7 @@ The goal of the repository is to provide an implementation of the WaveNet vocode
 
 Audio samples are available at https://r9y9.github.io/wavenet_vocoder/.
 
-This is still much WIP. See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
+See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
 
 
 ## Highlights
