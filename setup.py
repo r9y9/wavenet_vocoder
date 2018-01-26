@@ -6,7 +6,7 @@ import setuptools.command.build_py
 import os
 import subprocess
 
-version = '0.0.2'
+version = '0.0.3'
 
 # Adapted from https://github.com/pytorch/pytorch
 cwd = os.path.dirname(os.path.abspath(__file__))
