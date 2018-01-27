@@ -197,50 +197,50 @@ Your browser does not support the audio element.
 
 ## WaveNet vocoder conditioned on mel-spectrogram (16-bit linear PCM)
 
-Samples from a model trained for over 300k steps.
+Samples from a model trained for over 400k steps.
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/0_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/0_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/1_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/1_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/2_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/2_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/3_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/3_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/4_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/4_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/5_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/5_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/6_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/6_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/7_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/7_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/mixture_lj/8_checkpoint_step000300000_ema_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/mixture_lj/8_checkpoint_step000410000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
