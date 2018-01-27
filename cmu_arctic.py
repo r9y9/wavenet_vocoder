@@ -71,6 +71,9 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
     else:
         wav, _ = librosa.effects.trim(wav, top_db=20)
 
+    if hparams.rescaling:
+        wav = wav / np.abs(wav).max() * hparams.rescaling_max
+
     # Mu-law quantize
     if is_mulaw_quantize(hparams.input_type):
         # [0, quantize_channels)
@@ -89,8 +92,6 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
         out_dtype = np.float32
     else:
         # [-1, 1]
-        if hparams.rescaling:
-            wav = wav / np.abs(wav).max() * hparams.rescaling_max
         out = wav
         constant_values = 0.0
         out_dtype = np.float32

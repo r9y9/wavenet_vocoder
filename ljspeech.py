@@ -33,6 +33,9 @@ def _process_utterance(out_dir, index, wav_path, text):
     # Load the audio to a numpy array:
     wav = audio.load_wav(wav_path)
 
+    if hparams.rescaling:
+        wav = wav / np.abs(wav).max() * hparams.rescaling_max
+
     # Mu-law quantize
     if is_mulaw_quantize(hparams.input_type):
         # [0, quantize_channels)
@@ -51,8 +54,6 @@ def _process_utterance(out_dir, index, wav_path, text):
         out_dtype = np.float32
     else:
         # [-1, 1]
-        if hparams.rescaling:
-            wav = wav / np.abs(wav).max() * hparams.rescaling_max
         out = wav
         constant_values = 0.0
         out_dtype = np.float32
