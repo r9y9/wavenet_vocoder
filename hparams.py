@@ -44,7 +44,6 @@ hparams = tf.contrib.training.HParams(
     min_level_db=-100,
     ref_level_db=20,
     # whether to rescale waveform or not.
-    # This is only valid for input_type="raw"
     # Let x is an input waveform, rescaled waveform y is given by:
     # y = x / np.abs(x).max() * rescaling_max
     rescaling=True,
