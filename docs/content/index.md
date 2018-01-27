@@ -244,6 +244,11 @@ Your browser does not support the audio element.
 Your browser does not support the audio element.
 </audio>
 
+<audio controls="controls" >
+<source src="/wavenet_vocoder/audio/mixture_lj/9_checkpoint_step000410000_ema_predicted.wav" autoplay/>
+Your browser does not support the audio element.
+</audio>
+
 | key                         | value |
 |---------------------------------|------------------------------------------------------|
 | Data                            | LJSpeech (12522 for training, 578 for testing) |
