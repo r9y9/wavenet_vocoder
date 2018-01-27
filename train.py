@@ -765,7 +765,9 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema=None):
 
 def build_model():
     if is_mulaw_quantize(hparams.input_type):
-        assert hparams.out_channels == hparams.quantize_channels
+        if hparams.out_channels != hparams.quantize_channels:
+            raise RuntimeError(
+                "out_channels must equal to quantize_chennels if input_type is 'mulaw-quantize'")
     model = getattr(builder, hparams.builder)(
         out_channels=hparams.out_channels,
         layers=hparams.layers,
