@@ -149,6 +149,14 @@ if __name__ == "__main__":
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
 
+    # Presets
+    if hparams.preset is not None and hparams.preset != "":
+        preset = hparams.presets[hparams.preset]
+        import json
+        hparams.parse_json(json.dumps(preset))
+        print("Override hyper parameters with preset \"{}\": {}".format(
+            hparams.preset, json.dumps(preset, indent=4)))
+
     # Load conditional features
     if conditional_path is not None:
         c = np.load(conditional_path)
