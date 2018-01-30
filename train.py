@@ -406,7 +406,10 @@ def collate_fn(batch):
             x = audio.trim(x)
             if max_time_steps is not None and len(x) > max_time_steps:
                 s = np.random.randint(0, len(x) - max_time_steps)
-                x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                if local_conditioning:
+                    x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                else:
+                    x = x[s:s + max_time_steps]
             new_batch.append((x, c, g))
         batch = new_batch
 
@@ -768,6 +771,11 @@ def build_model():
         if hparams.out_channels != hparams.quantize_channels:
             raise RuntimeError(
                 "out_channels must equal to quantize_chennels if input_type is 'mulaw-quantize'")
+    if hparams.upsample_conditional_features and hparams.cin_channels < 0:
+        s = "Upsample conv layers were specified while local conditioning disabled. "
+        s += "Notice that upsample conv layers will never be used."
+        warn(s)
+
     model = getattr(builder, hparams.builder)(
         out_channels=hparams.out_channels,
         layers=hparams.layers,

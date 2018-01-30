@@ -163,7 +163,7 @@ class WaveNet(nn.Module):
             g = g.transpose(1, 2)
         g_bct = _expand_global_features(B, T, g, bct=True)
 
-        if self.upsample_conv is not None:
+        if c is not None and self.upsample_conv is not None:
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
@@ -247,7 +247,7 @@ class WaveNet(nn.Module):
         g_btc = _expand_global_features(B, T, g, bct=False)
 
         # Local conditioning
-        if self.upsample_conv is not None:
+        if c is not None and self.upsample_conv is not None:
             assert c is not None
             # B x 1 x C x T
             c = c.unsqueeze(1)
