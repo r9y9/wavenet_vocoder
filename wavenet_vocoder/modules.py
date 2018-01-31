@@ -48,6 +48,23 @@ def _conv1x1_forward(conv, x, is_incremental):
 
 class ResidualConv1dGLU(nn.Module):
     """Residual dilated conv1d + Gated linear unit
+
+    Args:
+        residual_channels (int): Residual input / output channels
+        gate_channels (int): Gated activation channels.
+        kernel_size (int): Kernel size of convolution layers.
+        skip_out_channels (int): Skip connection channels. If None, set to same
+          as ``residual_channels``.
+        cin_channels (int): Local conditioning channels. If negative value is
+          set, local conditioning is disabled.
+        gin_channels (int): Global conditioning channels. If negative value is
+          set, global conditioning is disabled.
+        dropout (float): Dropout probability.
+        padding (int): Padding for convolution layers. If None, proper padding
+          is computed depends on dilation and kernel_size.
+        dilation (int): Dilation factor.
+        weight_normalization (bool): If True, DeepVoice3-style weight
+          normalization is applied.
     """
 
     def __init__(self, residual_channels, gate_channels, kernel_size,

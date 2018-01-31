@@ -32,6 +32,11 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
     Args:
         y_hat (Variable): Predicted output (B x C x T)
         y (Variable): Target (B x T x 1).
+        num_classes (int): Number of classes
+        log_scale_min (float): Log scale minimum value
+        reduce (bool): If True, the losses are averaged or summed for each
+          minibatch.
+
     Returns
         Variable: loss
     """
@@ -112,8 +117,11 @@ def to_one_hot(tensor, n, fill_with=1.):
 
 def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
     """
+    Sample from discretized mixture of logistic distributions
+
     Args:
         y (Variable): B x C x T
+        log_scale_min (float): Log scale minimum value
 
     Returns:
         Variable: sample in range of [-1, 1].

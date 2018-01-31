@@ -19,11 +19,13 @@ def _expand_global_features(B, T, g, bct=True):
     """Expand global conditioning features to all time steps
 
     Args:
+        B (int): Batch size.
+        T (int): Time length.
         g (Variable): Global features, (B x C) or (B x C x 1).
         bct (bool) : returns (B x C x T) if True, otherwise (B x T x C)
 
     Returns:
-        Variable: B x C x T
+        Variable: B x C x T or B x T x C or None
     """
     if g is None:
         return None
@@ -58,9 +60,35 @@ def receptive_field_size(total_layers, num_cycles, kernel_size,
 
 
 class WaveNet(nn.Module):
-    """WaveNet
+    """The WaveNet model that supports local and global conditioning.
 
     Args:
+        out_channels (int): Output channels. If input_type is mu-law quantized
+          one-hot vecror. this must equal to the quantize channels. Other wise
+          num_mixtures x 3 (pi, mu, log_scale).
+        layers (int): Number of total layers
+        stacks (int): Number of dilation cycles
+        residual_channels (int): Residual input / output channels
+        gate_channels (int): Gated activation channels.
+        skip_out_channels (int): Skip connection channels.
+        kernel_size (int): Kernel size of convolution layers.
+        dropout (float): Dropout probability.
+        cin_channels (int): Local conditioning channels. If negative value is
+          set, local conditioning is disabled.
+        gin_channels (int): Global conditioning channels. If negative value is
+          set, global conditioning is disabled.
+        n_speakers (int): Number of speakers. Used only if global conditioning
+          is enabled.
+        weight_normalization (bool): If True, DeepVoice3-style weight
+          normalization is applied.
+        upsample_conditional_features (bool): Whether upsampling local
+          conditioning features by transposed convolution layers or not.
+        upsample_scales (list): List of upsample scale.
+          ``np.prod(upsample_scales)`` must equal to hop size. Used only if
+          upsample_conditional_features is enabled.
+        freq_axis_kernel_size (int): Freq-axis kernel_size for transposed
+          convolution layers for upsampling. If you only care about time-axis
+          upsampling, set this to 1.
         scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
           quantized one-hot vector is expected.
     """
@@ -151,7 +179,7 @@ class WaveNet(nn.Module):
             softmax (bool): Whether applies softmax or not.
 
         Returns:
-            Variable: outupt, shape B x out_channels x T
+            Variable: output, shape B x out_channels x T
         """
         # Expand global conditioning features to all time steps
         B, _, T = x.size()
@@ -196,7 +224,7 @@ class WaveNet(nn.Module):
                             T=100, test_inputs=None,
                             tqdm=lambda x: x, softmax=True, quantize=True,
                             log_scale_min=-7.0):
-        """Incremental forward
+        """Incremental forward step
 
         Due to linearized convolutions, inputs of shape (B x C x T) are reshaped
         to (B x T x C) internally and fed to the network for each time step.
@@ -212,6 +240,7 @@ class WaveNet(nn.Module):
             softmax (bool) : Whether applies softmax or not
             quantize (bool): Whether quantize softmax output before feeding the
               network output to input for the next time step. TODO: rename
+            log_scale_min (float):  Log scale minimum value.
 
         Returns:
             Variable: Generated one-hot encoded samples. B x C x T　
