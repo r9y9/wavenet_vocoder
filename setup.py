@@ -19,6 +19,9 @@ else:
         version += '+' + sha[:7]
     except subprocess.CalledProcessError:
         pass
+    except IOError:  # FileNotFoundError for python 3
+        pass
+
 
 
 class build_py(setuptools.command.build_py.build_py):
