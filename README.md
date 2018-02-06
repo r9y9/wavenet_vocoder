@@ -143,9 +143,10 @@ Important options:
 e.g.,
 
 ```
-python synthesis.py checkpoints_awb/checkpoint_step000100000.pth \
+python synthesis.py --hparams="parameters you want to override" \ 
+    checkpoints_awb/checkpoint_step000100000.pth \
     generated/test_awb \
-    --conditional=./data/cmu_arctic/cmu_arctic-audio-00001.npy
+    --conditional=./data/cmu_arctic/cmu_arctic-mel-00001.npy
 ```
 
 ## Misc
@@ -157,7 +158,7 @@ Usage:
 
 ```
 python evaluate.py ${checkpoint_path} ${output_dir} --data-root="data location"\
-    -hparams="parameters you want to override"
+    --hparams="parameters you want to override"
 ```
 
 Options:
