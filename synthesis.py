@@ -81,7 +81,10 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         assert length is not None
     else:
         # (Tc, D)
-        assert c.ndim == 2
+        if c.ndim != 2:
+            raise RuntimeError(
+                    "Expected 2-dim shape (T, {}) for the conditional feature, but {} was actually given.".format(hparams.cin_channels, c.shape))
+            assert c.ndim == 2
         Tc = c.shape[0]
         upsample_factor = audio.get_hop_size()
         # Overwrite length according to feature size
