@@ -88,56 +88,56 @@ Your browser does not support the audio element.
 | Number of upsampling layers | N/A |
 
 
-## WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (8-bit mu-law)
+## WaveNet vocoder conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM)
 
-Samples from a model trained for 200k steps (~44 hours)
+Samples from a model trained for over 1000k steps
 
 **awb**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_12_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_12_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_7_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker0_7_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **bdl**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_2_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_2_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_33_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker1_33_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **clb**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_5_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_5_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_9_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker2_9_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 **jmk**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_24_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_24_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_30_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker3_30_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -145,12 +145,12 @@ Your browser does not support the audio element.
 **ksp**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_25_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_25_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_3_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker4_3_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -158,12 +158,12 @@ Your browser does not support the audio element.
 **rms**
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_0_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_0_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_1_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker5_1_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -171,12 +171,12 @@ Your browser does not support the audio element.
 
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_4_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_4_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
 <audio controls="controls" >
-<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000200000_predicted.wav" autoplay/>
+<source src="/wavenet_vocoder/audio/cmu_arctic_multispeaker/speaker6_6_checkpoint_step000740000_ema_predicted.wav" autoplay/>
 Your browser does not support the audio element.
 </audio>
 
@@ -187,11 +187,12 @@ Your browser does not support the audio element.
 | Local conditioning            | 80-dim mel-spectrogram                               |
 | Hop size | 256 |
 | Global conditioning            | 16-dim speaker embedding [^1]                              |
-| Total layers                    | 16                                                   |
-| Num cycles                      | 2                                                    |
+| Total layers                    | 24                                                   |
+| Num cycles                      | 4                                                   |
 | Residual / Gate / Skip-out channels | 512 / 512 / 256  |
-| Receptive field (samples / ms) | 1021 / 63.8                                          |
-| Number of upsampling layers | N/A |
+| Receptive field (samples / ms) | 505 / 22.9                                        |
+| Numer of mixtures  |  10  |
+| Number of upsampling layers | 4 |
 
 [^1]: Note that mel-spectrogram used in local conditioning is dependent on speaker characteristics, so we cannot simply change the speaker identity of the generated audio samples using the model. It should work without speaker embedding, but it might have helped training speed.
 
