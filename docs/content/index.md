@@ -132,7 +132,7 @@ Your browser does not support the audio element.
 ## WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz)
 
 - Samples from a model trained for 100k steps (~22 hours)
-- Left: generated, Right: (mu-law encoded) ground trugh
+- Left: generated, Right: (mu-law encoded) ground truth
 
 <audio controls="controls" >
 <source src="/wavenet_vocoder/audio/slt/0_checkpoint_step000100000_predicted.wav" autoplay/>
