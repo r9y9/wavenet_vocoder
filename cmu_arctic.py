@@ -100,7 +100,7 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
     # (N, D)
     mel_spectrogram = audio.melspectrogram(wav).astype(np.float32).T
     # lws pads zeros internally before performing stft
-    # this is needed to adjast time resolution between audio and mel-spectrogram
+    # this is needed to adjust time resolution between audio and mel-spectrogram
     l, r = audio.lws_pad_lr(wav, hparams.fft_size, audio.get_hop_size())
 
     # zero pad for quantized signal
@@ -108,7 +108,7 @@ def _process_utterance(out_dir, index, speaker_id, wav_path, text):
     N = mel_spectrogram.shape[0]
     assert len(out) >= N * audio.get_hop_size()
 
-    # time resolution adjastment
+    # time resolution adjustment
     # ensure length of raw audio is multiple of hop_size so that we can use
     # transposed convolution to upsample
     out = out[:N * audio.get_hop_size()]

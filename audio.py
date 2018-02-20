@@ -23,8 +23,8 @@ def trim(quantized):
     return quantized[start:end]
 
 
-def adjast_time_resolution(quantized, mel):
-    """Adjast time resolution by repeating features
+def adjust_time_resolution(quantized, mel):
+    """Adjust time resolution by repeating features
 
     Args:
         quantized (ndarray): (T,)
@@ -47,6 +47,7 @@ def adjast_time_resolution(quantized, mel):
     start, end = start_and_end_indices(quantized, hparams.silence_threshold)
 
     return quantized[start:end], mel[start:end, :]
+adjast_time_resolution = adjust_time_resolution  # 'adjust' is correct spelling, this is for compatibility
 
 
 def start_and_end_indices(quantized, silence_threshold=2):
