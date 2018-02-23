@@ -16,9 +16,18 @@ options:
 from docopt import docopt
 
 import sys
-from os.path import dirname, join
+
+import os
+from os.path import dirname, join, expanduser
 from tqdm import tqdm #, trange
 from datetime import datetime
+import random
+
+import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from wavenet_vocoder import builder
 import lrschedule
@@ -32,17 +41,11 @@ from torch import optim
 import torch.backends.cudnn as cudnn
 from torch.utils import data as data_utils
 from torch.utils.data.sampler import Sampler
-import numpy as np
 
 from nnmnkwii import preprocessing as P
 from nnmnkwii.datasets import FileSourceDataset, FileDataSource
 
-from os.path import join, expanduser
-import random
 import librosa.display
-from matplotlib import pyplot as plt
-import sys
-import os
 
 from sklearn.model_selection import train_test_split
 from keras.utils import np_utils
@@ -525,7 +528,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     
     # Run the model in fast eval mode
     y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, # tqdm=tqdm, 
+        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm, 
         log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
@@ -699,6 +702,9 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 ema.register(name, param.data)
     else:
         ema = None
+        
+    _tqdm = tqdm
+    #_tqdm = lambda x: x
 
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
@@ -706,8 +712,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             train = (phase == "train")
             running_loss = 0.
             test_evaluated = False
-            for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader), leave=True):
-            #for step, (x, y, c, g, input_lengths) in enumerate(data_loader):
+            for step, (x, y, c, g, input_lengths) in _tqdm(enumerate(data_loader)):
                 # Whether to save eval (i.e., online decoding) result
                 do_eval = False
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
