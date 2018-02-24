@@ -124,11 +124,11 @@ def _build_mel_basis():
 
 
 def _amp_to_db(x):
-    return 20 * np.log10(np.maximum(1e-5, x + 0.01))
+    return 20 * np.log10(x + 0.01)
 
 
 def _db_to_amp(x):
-    return np.power(10.0, x * 0.05)
+    return np.maximum(np.power(10.0, x * 0.05) - 0.01, 0.0)
 
 
 def _normalize(S):
