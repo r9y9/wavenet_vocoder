@@ -124,7 +124,8 @@ def _build_mel_basis():
 
 
 def _amp_to_db(x):
-    return 20 * np.log10(np.maximum(1e-5, x))
+    min_level = np.exp(hparams.min_level_db / 20 * np.log(10))
+    return 20 * np.log10(np.maximum(min_level, x))
 
 
 def _db_to_amp(x):
