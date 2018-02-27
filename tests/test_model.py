@@ -220,11 +220,12 @@ def test_local_conditioning_upsample_correctness():
 
 
 @attr("global_conditioning")
-def test_global_conditioning_correctness():
+def test_global_conditioning_with_embedding_correctness():
     # condition by mean power
     x, x_org, c = _test_data(returns_power=True)
     g = c.mean(axis=-1, keepdims=True).astype(np.int)
-    model = build_compact_model(gin_channels=16, n_speakers=256)
+    model = build_compact_model(gin_channels=16, n_speakers=256,
+                                use_speaker_embedding=True)
     assert not model.local_conditioning_enabled()
     assert model.has_speaker_embedding()
 
@@ -237,6 +238,43 @@ def test_global_conditioning_correctness():
 
     model.eval()
 
+    y_offline = model(x, g=g, softmax=True)
+
+    # Incremental forward with forced teaching
+    y_online = model.incremental_forward(
+        test_inputs=x, g=g, T=None, tqdm=tqdm, softmax=True, quantize=False)
+
+    # (1 x C x T)
+    c = (y_offline - y_online).abs()
+    print(c.mean(), c.max())
+
+    try:
+        assert np.allclose(y_offline.cpu().data.numpy(),
+                           y_online.cpu().data.numpy(), atol=1e-4)
+    except:
+        from warnings import warn
+        warn("oops! must be a bug!")
+
+
+@attr("global_conditioning")
+def test_global_conditioning_correctness():
+    # condition by mean power
+    x, x_org, c = _test_data(returns_power=True)
+    # must be floating-point type
+    g = c.mean(axis=-1, keepdims=True).astype(np.float32)
+    model = build_compact_model(gin_channels=1, use_speaker_embedding=False)
+    assert not model.local_conditioning_enabled()
+    # `use_speaker_embedding` False should diable embedding layer
+    assert not model.has_speaker_embedding()
+
+    x = Variable(torch.from_numpy(x).contiguous())
+    x = x.cuda() if use_cuda else x
+
+    g = Variable(torch.from_numpy(g).contiguous())
+    g = g.cuda() if use_cuda else g
+    print(g.size())
+
+    model.eval()
     y_offline = model(x, g=g, softmax=True)
 
     # Incremental forward with forced teaching

@@ -91,6 +91,9 @@ class WaveNet(nn.Module):
           upsampling, set this to 1.
         scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
           quantized one-hot vector is expected.
+        use_speaker_embedding (Bool): Use speaker embedding or Not. Set to False
+          if you want to disable embedding layer and use external features
+          directly.
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -104,6 +107,7 @@ class WaveNet(nn.Module):
                  upsample_scales=None,
                  freq_axis_kernel_size=3,
                  scalar_input=False,
+                 use_speaker_embedding=True,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
@@ -138,7 +142,7 @@ class WaveNet(nn.Module):
                       weight_normalization=weight_normalization),
         ])
 
-        if gin_channels > 0:
+        if gin_channels > 0 and use_speaker_embedding:
             assert n_speakers is not None
             self.embed_speakers = Embedding(
                 n_speakers, gin_channels, padding_idx=None, std=0.1)
@@ -174,21 +178,30 @@ class WaveNet(nn.Module):
 
         Args:
             x (Variable): One-hot encoded audio signal, shape (B x C x T)
-            c (Variable): Local conditioning features, shape (B x C' x T)
-            g (Variable): Global conditioning features, shape (B x C'')
+            c (Variable): Local conditioning features,
+              shape (B x cin_channels x T)
+            g (Variable): Global conditioning features,
+              shape (B x gin_channels x 1) or speaker Ids of shape (B x 1).
+              Note that ``self.use_speaker_embedding`` must be False when you
+              want to disable embedding layer and use external features
+              directly (e.g., one-hot vector).
+              Also type of input tensor must be FloatTensor, not LongTensor
+              in case of ``self.use_speaker_embedding`` equals False.
             softmax (bool): Whether applies softmax or not.
 
         Returns:
             Variable: output, shape B x out_channels x T
         """
-        # Expand global conditioning features to all time steps
         B, _, T = x.size()
 
         if g is not None:
-            g = self.embed_speakers(g.view(B, -1))
-            assert g.dim() == 3
-            # (B x gin_channels, 1)
-            g = g.transpose(1, 2)
+            if self.embed_speakers is not None:
+                # (B x 1) -> (B x 1 x gin_channels)
+                g = self.embed_speakers(g.view(B, -1))
+                # (B x gin_channels x 1)
+                g = g.transpose(1, 2)
+                assert g.dim() == 3
+        # Expand global conditioning features to all time steps
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         if c is not None and self.upsample_conv is not None:
@@ -269,10 +282,11 @@ class WaveNet(nn.Module):
 
         # Global conditioning
         if g is not None:
-            g = self.embed_speakers(g.view(B, -1))
-            assert g.dim() == 3
-            # (B x gin_channels, 1)
-            g = g.transpose(1, 2)
+            if self.embed_speakers is not None:
+                g = self.embed_speakers(g.view(B, -1))
+                # (B x gin_channels, 1)
+                g = g.transpose(1, 2)
+                assert g.dim() == 3
         g_btc = _expand_global_features(B, T, g, bct=False)
 
         # Local conditioning
