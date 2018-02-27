@@ -50,8 +50,8 @@ hparams = tf.contrib.training.HParams(
     rescaling_max=0.999,
     # mel-spectrogram is normalized to [0, 1] for each utterance and clipping may
     # happen depends on min_level_db and ref_level_db, causing clipping noise.
-    # If False, assertion is added to ensure no clipping happens.
-    allow_clipping_in_normalization=False,
+    # If False, assertion is added to ensure no clipping happens.o0
+    allow_clipping_in_normalization=True,
 
     # Mixture of logistic distributions:
     log_scale_min=float(np.log(1e-14)),
