@@ -195,7 +195,6 @@ class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
     def __init__(self, lengths, batch_size=16, batch_group_size=None,
                  permutate=True):
         self.lengths, self.sorted_indices = torch.sort(torch.LongTensor(lengths))
-        # print(self.lengths, self.sorted_indices, batch_size, batch_group_size)
         
         self.batch_size = batch_size
         if batch_group_size is None:
@@ -646,7 +645,6 @@ def __train_step(phase, epoch, global_step, global_test_step,
     # y_hat: (B x C x T)
     
     y_hat = model(x, c=c, g=g, softmax=False)
-    #print("len(y_hat)", len(y_hat))
     
     if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
@@ -703,16 +701,13 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
     else:
         ema = None
         
-    _tqdm = tqdm
-    #_tqdm = lambda x: x
-
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
         for phase, data_loader in data_loaders.items():
             train = (phase == "train")
             running_loss = 0.
             test_evaluated = False
-            for step, (x, y, c, g, input_lengths) in _tqdm(enumerate(data_loader)):
+            for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
                 # Whether to save eval (i.e., online decoding) result
                 do_eval = False
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
@@ -731,7 +726,6 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                     print("[{}] Eval at train step {}".format(phase, global_step))
 
                 # Do step
-                #print("\nRunning epoch %5d, step %6d - %s : %s" % (global_epoch, step, phase, ('EVAL' if do_eval else 'TRAIN'), ))
                 running_loss += __train_step(
                     phase, global_epoch, global_step, global_test_step, model,
                     optimizer, writer, criterion, x, y, c, g, input_lengths,
