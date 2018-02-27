@@ -16,9 +16,18 @@ options:
 from docopt import docopt
 
 import sys
-from os.path import dirname, join
-from tqdm import tqdm, trange
+
+import os
+from os.path import dirname, join, expanduser
+from tqdm import tqdm #, trange
 from datetime import datetime
+import random
+
+import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from wavenet_vocoder import builder
 import lrschedule
@@ -32,17 +41,11 @@ from torch import optim
 import torch.backends.cudnn as cudnn
 from torch.utils import data as data_utils
 from torch.utils.data.sampler import Sampler
-import numpy as np
 
 from nnmnkwii import preprocessing as P
 from nnmnkwii.datasets import FileSourceDataset, FileDataSource
 
-from os.path import join, expanduser
-import random
 import librosa.display
-from matplotlib import pyplot as plt
-import sys
-import os
 
 from sklearn.model_selection import train_test_split
 from keras.utils import np_utils
@@ -130,8 +133,8 @@ class _NPYDataSource(FileDataSource):
         self.lengths = list(
             map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
 
-        paths = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
-        paths = list(map(lambda f: join(self.data_root, f), paths))
+        paths_relative = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
+        paths = list(map(lambda f: join(self.data_root, f), paths_relative))
 
         if self.multi_speaker:
             speaker_ids = list(map(lambda l: int(l.decode("utf-8").split("|")[-1]), lines))
@@ -157,12 +160,12 @@ class _NPYDataSource(FileDataSource):
         # Filter by train/test
         indices = self.interest_indices(paths)
         paths = list(np.array(paths)[indices])
-        self.lengths = list(np.array(self.lengths)[indices])
-        self.lengths = list(map(int, self.lengths))
+        lengths_np = list(np.array(self.lengths)[indices])
+        self.lengths = list(map(int, lengths_np))
 
         if self.multi_speaker:
-            self.speaker_ids = list(np.array(self.speaker_ids)[indices])
-            self.speaker_ids = list(map(int, self.speaker_ids))
+            speaker_ids_np = list(np.array(self.speaker_ids)[indices])
+            self.speaker_ids = list(map(int, speaker_ids_np))
             assert len(paths) == len(self.speaker_ids)
 
         return paths
@@ -182,16 +185,17 @@ class MelSpecDataSource(_NPYDataSource):
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
-    """Partially randmoized sampler
+    """Partially randomized sampler
 
     1. Sort by lengths
     2. Pick a small patch and randomize it
-    3. Permutate mini-batchs
+    3. Permutate mini-batches
     """
 
     def __init__(self, lengths, batch_size=16, batch_group_size=None,
                  permutate=True):
         self.lengths, self.sorted_indices = torch.sort(torch.LongTensor(lengths))
+        
         self.batch_size = batch_size
         if batch_group_size is None:
             batch_group_size = min(batch_size * 32, len(self.lengths))
@@ -375,7 +379,7 @@ def collate_fn(batch):
     else:
         max_time_steps = None
 
-    # Time resolution adjastment
+    # Time resolution adjustment
     if local_conditioning:
         new_batch = []
         for idx in range(len(batch)):
@@ -387,12 +391,13 @@ def collate_fn(batch):
                     if len(x) > max_steps:
                         max_time_frames = max_steps // audio.get_hop_size()
                         s = np.random.randint(0, len(c) - max_time_frames)
+                        #print("Size of file=%6d, t_offset=%6d"  % (len(c), s,))
                         ts = s * audio.get_hop_size()
                         x = x[ts:ts + audio.get_hop_size() * max_time_frames]
                         c = c[s:s + max_time_frames, :]
                         assert_ready_for_upsampling(x, c)
             else:
-                x, c = audio.adjast_time_resolution(x, c)
+                x, c = audio.adjust_time_resolution(x, c)
                 if max_time_steps is not None and len(x) > max_time_steps:
                     s = np.random.randint(0, len(x) - max_time_steps)
                     x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
@@ -519,8 +524,10 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     else:
         initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
+    
+    # Run the model in fast eval mode
     y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
+        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm, 
         log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
@@ -633,11 +640,12 @@ def __train_step(phase, epoch, global_step, global_test_step,
     mask = sequence_mask(input_lengths, max_len=x.size(-1)).unsqueeze(-1)
     mask = mask[:, 1:, :]
 
-    # Apply model
+    # Apply model: Run the model in regular eval mode
     # NOTE: softmax is handled in F.cross_entrypy_loss
     # y_hat: (B x C x T)
+    
     y_hat = model(x, c=c, g=g, softmax=False)
-
+    
     if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
         # (B, C, T, 1)
@@ -692,7 +700,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 ema.register(name, param.data)
     else:
         ema = None
-
+        
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
         for phase, data_loader in data_loaders.items():
@@ -953,15 +961,19 @@ if __name__ == "__main__":
     # Setup summary writer for tensorboard
     if log_event_path is None:
         log_event_path = "log/run-test" + str(datetime.now()).replace(" ", "_")
-    print("Los event path: {}".format(log_event_path))
+    print("TensorBoard event log path: {}".format(log_event_path))
     writer = SummaryWriter(log_dir=log_event_path)
 
     # Train!
     try:
         train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=checkpoint_dir)
     except KeyboardInterrupt:
+        print("Interrupted!")
+        pass
+    finally :
         save_checkpoint(
             model, optimizer, global_step, checkpoint_dir, global_epoch)
 
     print("Finished")
+        
     sys.exit(0)
