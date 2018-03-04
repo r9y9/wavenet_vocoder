@@ -11,12 +11,6 @@ hparams = tf.contrib.training.HParams(
     # Convenient model builder
     builder="wavenet",
 
-    # Presets known to work good.
-    # NOTE: If specified, override hyper parameters with preset
-    preset="",
-    presets={
-    },
-
     # Input type:
     # 1. raw [-1, 1]
     # 2. mulaw [-1, 1]

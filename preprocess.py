@@ -7,6 +7,7 @@ usage: preprocess.py [options] <name> <in_dir> <out_dir>
 options:
     --num_workers=<n>        Num workers.
     --hparams=<parmas>       Hyper parameters [default: ].
+    --preset=<json>          Path of preset parameters (json).
     -h, --help               Show help message.
 """
 from docopt import docopt
@@ -42,18 +43,15 @@ if __name__ == "__main__":
     out_dir = args["<out_dir>"]
     num_workers = args["--num_workers"]
     num_workers = cpu_count() if num_workers is None else int(num_workers)
+    preset = args["preset"]
 
+    # Load preset if specified
+    if preset is not None:
+        with open(preset) as f:
+            hparams.parse_json(f.read())
     # Override hyper parameters
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
-
-    # Presets
-    if hparams.preset is not None and hparams.preset != "":
-        preset = hparams.presets[hparams.preset]
-        import json
-        hparams.parse_json(json.dumps(preset))
-        print("Override hyper parameters with preset \"{}\": {}".format(
-            hparams.preset, json.dumps(preset, indent=4)))
 
     print("Sampling frequency: {}".format(hparams.sample_rate))
 

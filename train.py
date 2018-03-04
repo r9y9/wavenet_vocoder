@@ -6,6 +6,7 @@ options:
     --data-root=<dir>            Directory contains preprocessed features.
     --checkpoint-dir=<dir>       Directory where to save model checkpoints [default: checkpoints].
     --hparams=<parmas>           Hyper parameters [default: ].
+    --preset=<json>              Path of preset parameters (json).
     --checkpoint=<path>          Restore model from checkpoint path if given.
     --restore-parts=<path>       Restore part of the model.
     --log-event-path=<name>      Log event path.
@@ -19,7 +20,7 @@ import sys
 
 import os
 from os.path import dirname, join, expanduser
-from tqdm import tqdm #, trange
+from tqdm import tqdm  # , trange
 from datetime import datetime
 import random
 
@@ -195,7 +196,7 @@ class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
     def __init__(self, lengths, batch_size=16, batch_group_size=None,
                  permutate=True):
         self.lengths, self.sorted_indices = torch.sort(torch.LongTensor(lengths))
-        
+
         self.batch_size = batch_size
         if batch_group_size is None:
             batch_group_size = min(batch_size * 32, len(self.lengths))
@@ -524,10 +525,10 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     else:
         initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
-    
+
     # Run the model in fast eval mode
     y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm, 
+        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm,
         log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
@@ -643,9 +644,9 @@ def __train_step(phase, epoch, global_step, global_test_step,
     # Apply model: Run the model in regular eval mode
     # NOTE: softmax is handled in F.cross_entrypy_loss
     # y_hat: (B x C x T)
-    
+
     y_hat = model(x, c=c, g=g, softmax=False)
-    
+
     if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
         # (B, C, T, 1)
@@ -700,7 +701,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                 ema.register(name, param.data)
     else:
         ema = None
-        
+
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
         for phase, data_loader in data_loaders.items():
@@ -910,6 +911,7 @@ if __name__ == "__main__":
     checkpoint_restore_parts = args["--restore-parts"]
     speaker_id = args["--speaker-id"]
     speaker_id = int(speaker_id) if speaker_id is not None else None
+    preset = args["--preset"]
 
     data_root = args["--data-root"]
     if data_root is None:
@@ -918,18 +920,14 @@ if __name__ == "__main__":
     log_event_path = args["--log-event-path"]
     reset_optimizer = args["--reset-optimizer"]
 
+    # Load preset if specified
+    if preset is not None:
+        with open(preset) as f:
+            hparams.parse_json(f.read())
     # Override hyper parameters
     hparams.parse(args["--hparams"])
-    print(hparams_debug_string())
     assert hparams.name == "wavenet_vocoder"
-
-    # Presets
-    if hparams.preset is not None and hparams.preset != "":
-        preset = hparams.presets[hparams.preset]
-        import json
-        hparams.parse_json(json.dumps(preset))
-        print("Override hyper parameters with preset \"{}\": {}".format(
-            hparams.preset, json.dumps(preset, indent=4)))
+    print(hparams_debug_string())
 
     os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -970,10 +968,10 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Interrupted!")
         pass
-    finally :
+    finally:
         save_checkpoint(
             model, optimizer, global_step, checkpoint_dir, global_epoch)
 
     print("Finished")
-        
+
     sys.exit(0)

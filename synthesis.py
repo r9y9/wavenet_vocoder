@@ -6,6 +6,7 @@ usage: synthesis.py [options] <checkpoint> <dst_dir>
 
 options:
     --hparams=<parmas>                Hyper parameters [default: ].
+    --preset=<json>                   Path of preset parameters (json).
     --length=<T>                      Steps to generate [default: 32000].
     --initial-value=<n>               Initial value for the WaveNet decoder.
     --conditional=<p>                 Conditional features path.
@@ -83,7 +84,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         # (Tc, D)
         if c.ndim != 2:
             raise RuntimeError(
-                    "Expected 2-dim shape (T, {}) for the conditional feature, but {} was actually given.".format(hparams.cin_channels, c.shape))
+                "Expected 2-dim shape (T, {}) for the conditional feature, but {} was actually given.".format(hparams.cin_channels, c.shape))
             assert c.ndim == 2
         Tc = c.shape[0]
         upsample_factor = audio.get_hop_size()
@@ -147,18 +148,15 @@ if __name__ == "__main__":
     output_html = args["--output-html"]
     speaker_id = args["--speaker-id"]
     speaker_id = None if speaker_id is None else int(speaker_id)
+    preset = args["--preset"]
 
+    # Load preset if specified
+    if preset is not None:
+        with open(preset) as f:
+            hparams.parse_json(f.read())
     # Override hyper parameters
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
-
-    # Presets
-    if hparams.preset is not None and hparams.preset != "":
-        preset = hparams.presets[hparams.preset]
-        import json
-        hparams.parse_json(json.dumps(preset))
-        print("Override hyper parameters with preset \"{}\": {}".format(
-            hparams.preset, json.dumps(preset, indent=4)))
 
     # Load conditional features
     if conditional_path is not None:
