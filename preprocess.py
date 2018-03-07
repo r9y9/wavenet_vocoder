@@ -43,7 +43,7 @@ if __name__ == "__main__":
     out_dir = args["<out_dir>"]
     num_workers = args["--num_workers"]
     num_workers = cpu_count() if num_workers is None else int(num_workers)
-    preset = args["preset"]
+    preset = args["--preset"]
 
     # Load preset if specified
     if preset is not None:
