@@ -15,6 +15,24 @@ See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and curre
 - Focus on local and global conditioning of WaveNet, which is essential for vocoder.
 - Mixture of logistic distributions loss / sampling (experimental)
 
+## Pre-trained models
+
+**Note**: This is not a text-to-speech (TTS) model. With a pre-trained model provided here, you can synthesize waveform given a *mel spectrogram*, not raw text. Pre-trained models for TTS are planed to be released once I finish up [deepvoice3_pytorch/#21](https://github.com/r9y9/deepvoice3_pytorch/pull/21).
+
+| Model URL                                                                                                                        | Data       | Hyper params URL                                                                                     | Git commit                                                                                         | Steps         |
+|----------------------------------------------------------------------------------------------------------------------------------|------------|------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|---------------|
+| [link](https://www.dropbox.com/s/8qgcbd1mm2xsqgq/20180127_mixture_lj_checkpoint_step000410000_ema.pth?dl=0)                      | LJSpeech   | [link](https://www.dropbox.com/s/stxasitb56y1zw8/20180127_ljspeech_mixture.json?dl=0)                | [489e6fa](https://github.com/r9y9/wavenet_vocoder/commit/489e6fa92eda9ecf5b953b2783d5975d2fdee27a) | 1000k~  steps |
+| [link](https://www.dropbox.com/s/d0qk4ow9uuh2lww/20180212_mixture_multispeaker_cmu_arctic_checkpoint_step000740000_ema.pth?dl=0) | CMU ARCTIC | [link](https://www.dropbox.com/s/i35yigj5hvmeol8/20180212_multispeaker_cmu_arctic_mixture.json?dl=0) | [b1a1076](https://github.com/r9y9/wavenet_vocoder/tree/b1a1076e8b5d9b3e275c28f2f7f4d7cd0e75dae4)   | 740k steps    |
+
+To use pre-trained models, first checkout the specific git commit noted above. i.e.,
+
+```
+git checkout ${commit_hash}
+```
+
+And then see "Synthesize from a checkpoint" section in the README how to generate speech samples. Note that old version of synthesis.py may not accept `--preset=<json>` parameter and you might have to change `hparams.py` according to the preset (json) file.
+
+
 ## Requirements
 
 - Python 3
@@ -38,8 +56,30 @@ If you only need the library part, then you can install it by the following comm
 pip install wavenet_vocoder
 ```
 
-
 ## Getting started
+
+### Preset parameters
+
+There are many hyper parameters to be turned depends on data. For typical datasets, parameters known to work good (**preset**) are provided in the repository. See `presets` directory for details. Notice that
+
+1. `preprocess.py`
+2. `train.py`
+3. `synthesis.py`
+
+accepts `--preset=<json>` *optional* parameter, which specifies where to load preset parameters. If you are going to use preset parameters, then you must use same `--preset=<json>` throughout preprocessing, training and evaluation. e.g.,
+
+```
+python preprocess.py --preset=presets/cmu_arctic_8bit.json cmu_arctic ~/data/cmu_arctic
+python train.py --preset=presets/cmu_arctic_8bit.json --data-root=./data/cmu_arctic
+```
+
+instead of
+
+```
+python preprocess.py cmu_arctic ~/data/cmu_arctic
+# warning! this may use different hyper parameters used at preprocessing stage
+python train.py --preset=presets/cmu_arctic_8bit.json --data-root=./data/cmu_arctic
+```
 
 ### 0. Download dataset
 
@@ -48,12 +88,10 @@ pip install wavenet_vocoder
 
 ### 1. Preprocessing
 
-In this step, we will extract time-aligned audio and mel-spectrogram.
-
 Usage:
 
 ```
-python preprocess.py ${dataset_name} ${dataset_path} ${out_dir}
+python preprocess.py ${dataset_name} ${dataset_path} ${out_dir} --preset=<json>
 ```
 
 Supported `${dataset_name}`s for now are
@@ -61,10 +99,10 @@ Supported `${dataset_name}`s for now are
 - `cmu_arctic` (multi-speaker)
 - `ljspeech` (single speaker)
 
-Suppose you will want to preprocess CMU ARCTIC dataset and have data in `~/data/cmu_arctic`, then you can preprocess data by:
+Assuming you use preset parameters known to work good for CMU ARCTIC dataset and have data in `~/data/cmu_arctic`, then you can preprocess data by:
 
 ```
-python preprocess.py cmu_arctic ~/data/cmu_arctic ./data/cmu_arctic
+python preprocess.py cmu_arctic ~/data/cmu_arctic ./data/cmu_arctic --preset=presets/cmu_arctic_8bit.json
 ```
 
 When this is done, you will see time-aligned extracted features (pairs of audio and mel-spectrogram) in `./data/cmu_arctic`.
@@ -74,12 +112,12 @@ When this is done, you will see time-aligned extracted features (pairs of audio 
 Usage:
 
 ```
-python train.py --data-root=${data-root} --hparams="parameters you want to override"
+python train.py --data-root=${data-root} --preset=<json> --hparams="parameters you want to override"
 ```
 
 Important options:
 
-- `--speaker-id=<n>`: It specifies which speaker of data we use for training. If this is not specified, all training data are used. This should only be specified when you are dealing with a multi-speaker dataset. For example, if you are trying to build a speaker-dependent WaveNet vocoder for speaker `awb` of CMU ARCTIC, then you have to specify `--speaker-id=0`. Speaker ID is automatically assigned as follows:
+- `--speaker-id=<n>`: (Multi-speaker dataset only) it specifies which speaker of data we use for training. If this is not specified, all training data are used. This should only be specified when you are dealing with a multi-speaker dataset. For example, if you are trying to build a speaker-dependent WaveNet vocoder for speaker `awb` of CMU ARCTIC, then you have to specify `--speaker-id=0`. Speaker ID is automatically assigned as follows:
 
 ```py
 In [1]: from nnmnkwii.datasets import cmu_arctic
@@ -132,18 +170,18 @@ tensorboard --logdir=log
 Usage:
 
 ```
-python synthesis.py ${checkpoint_path} ${output_dir} -hparams="parameters you want to override"
+python synthesis.py ${checkpoint_path} ${output_dir} --preset=<json> --hparams="parameters you want to override"
 ```
 
 Important options:
 
-- `--length=<n>`: Number of time steps to generate. This is only valid for un-conditional WaveNets.
-- `--conditional=<path>`: Path of local conditional features (.npy). If this is specified, number of time steps to generate is determined by the size of conditional feature.
+- `--length=<n>`: (Un-conditional WaveNet only) Number of time steps to generate.
+- `--conditional=<path>`: (Required for onditional WaveNet) Path of local conditional features (.npy). If this is specified, number of time steps to generate is determined by the size of conditional feature.
 
 e.g.,
 
 ```
-python synthesis.py --hparams="parameters you want to override" \ 
+python synthesis.py --hparams="parameters you want to override" \
     checkpoints_awb/checkpoint_step000100000.pth \
     generated/test_awb \
     --conditional=./data/cmu_arctic/cmu_arctic-mel-00001.npy
@@ -160,6 +198,8 @@ Usage:
 python evaluate.py ${checkpoint_path} ${output_dir} --data-root="data location"\
     --hparams="parameters you want to override"
 ```
+
+This script is used for generating sounds for https://r9y9.github.io/wavenet_vocoder/.
 
 Options:
 
