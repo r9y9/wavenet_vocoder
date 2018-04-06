@@ -36,6 +36,7 @@ You could try for example:
 
 ```
 # Assuming you have downloaded LJSpeech-1.0 at ~/data/LJSpeech-1.0
+# pretrained model (20180127_mixture_lj_checkpoint_step000410000_ema.pth)
 git checkout 489e6fa
 python preprocess.py ljspeech ~/data/LJSpeech-1.0 ./data/ljspeech
 python synthesis.py --hparams="input_type=raw,quantize_channels=65536,out_channels=30" \
