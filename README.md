@@ -32,6 +32,19 @@ git checkout ${commit_hash}
 
 And then see "Synthesize from a checkpoint" section in the README how to generate speech samples. Note that old version of synthesis.py may not accept `--preset=<json>` parameter and you might have to change `hparams.py` according to the preset (json) file.
 
+You could try for example:
+
+```
+# Assuming you have downloaded LJSpeech-1.0 at ~/data/LJSpeech-1.0
+git checkout 489e6fa
+python preprocess.py ljspeech ~/data/LJSpeech-1.0 ./data/ljspeech
+python synthesis.py --hparams="input_type=raw,quantize_channels=65536,out_channels=30" \
+  --conditional=./data/ljspeech/ljspeech-mel-00001.npy \
+  20180127_mixture_lj_checkpoint_step000410000_ema.pth \
+  generated
+```
+
+You can find a generated wav file in `generated` directory. Wonder how it works? then take a look at code:)
 
 ## Requirements
 
