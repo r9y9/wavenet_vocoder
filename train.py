@@ -806,13 +806,22 @@ def build_model():
     return model
 
 
+def _load(checkpoint_path):
+    if use_cuda:
+        checkpoint = torch.load(checkpoint_path)
+    else:
+        checkpoint = torch.load(checkpoint_path,
+                                map_location=lambda storage, loc: storage)
+    return checkpoint
+
+
 def load_checkpoint(path, model, optimizer, reset_optimizer):
     global global_step
     global global_epoch
     global global_test_step
 
     print("Load checkpoint from: {}".format(path))
-    checkpoint = torch.load(path)
+    checkpoint = _load(path)
     model.load_state_dict(checkpoint["state_dict"])
     if not reset_optimizer:
         optimizer_state = checkpoint["optimizer"]
@@ -829,7 +838,7 @@ def load_checkpoint(path, model, optimizer, reset_optimizer):
 # https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113/3
 def restore_parts(path, model):
     print("Restore part of the model from: {}".format(path))
-    state = torch.load(path)["state_dict"]
+    state = _load(path)["state_dict"]
     model_dict = model.state_dict()
     valid_state_dict = {k: v for k, v in state.items() if k in model_dict}
 
