@@ -21,8 +21,8 @@ before_install:
   # Useful for debugging any issues with conda
   - conda config --add channels pypi
   - conda info -a
-  - deps='pip numpy scipy cython nose'
-  - conda create -q -n test-environment "python=$TRAVIS_PYTHON_VERSION" $deps
+  - deps='pip numpy scipy cython nose pytorch'
+  - conda create -q -n test-environment "python=$TRAVIS_PYTHON_VERSION" $deps -c pytorch
   - source activate test-environment
 
 install:
