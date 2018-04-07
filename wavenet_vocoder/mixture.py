@@ -98,7 +98,7 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
     cond = (y < -0.999).float()
     log_probs = cond * log_cdf_plus + (1. - cond) * inner_out
 
-    log_probs = torch.sum(log_probs, dim=-1, keepdim=True) + F.log_softmax(logit_probs, -1)
+    log_probs = log_probs + F.log_softmax(logit_probs, -1)
 
     if reduce:
         return -torch.sum(log_sum_exp(log_probs))
