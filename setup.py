@@ -23,7 +23,6 @@ else:
         pass
 
 
-
 class build_py(setuptools.command.build_py.build_py):
 
     def run(self):
@@ -57,6 +56,7 @@ setup(name='wavenet_vocoder',
       install_requires=[
           "numpy",
           "scipy",
+          "torch >= 0.3.0",
           "deepvoice3_pytorch >= 0.0.2",
       ],
       extras_require={
