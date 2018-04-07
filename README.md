@@ -51,7 +51,6 @@ You can find a generated wav file in `generated` directory. Wonder how it works?
 
 - Python 3
 - CUDA >= 8.0
-- PyTorch >= v0.3
 - TensorFlow >= v1.3
 
 ## Installation
