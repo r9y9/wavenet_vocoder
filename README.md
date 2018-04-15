@@ -30,7 +30,7 @@ To use pre-trained models, first checkout the specific git commit noted above. i
 git checkout ${commit_hash}
 ```
 
-And then see "Synthesize from a checkpoint" section in the README how to generate speech samples. Note that old version of synthesis.py may not accept `--preset=<json>` parameter and you might have to change `hparams.py` according to the preset (json) file.
+And then follows "Synthesize from a checkpoint" section in the README. Note that old version of synthesis.py may not accept `--preset=<json>` parameter and you might have to change `hparams.py` according to the preset (json) file.
 
 You could try for example:
 
