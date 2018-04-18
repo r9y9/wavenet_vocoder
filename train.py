@@ -645,7 +645,8 @@ def __train_step(phase, epoch, global_step, global_test_step,
     # NOTE: softmax is handled in F.cross_entrypy_loss
     # y_hat: (B x C x T)
 
-    y_hat = model(x, c=c, g=g, softmax=False)
+    # multi gpu support
+    y_hat = torch.nn.parallel.data_parallel(model, (x, c, g, False))
 
     if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
@@ -742,7 +743,7 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             averaged_loss = running_loss / len(data_loader)
             writer.add_scalar("{} loss (per epoch)".format(phase),
                               averaged_loss, global_epoch)
-            print("[{}] Loss: {}".format(phase, running_loss / len(data_loader)))
+            print("Step {} [{}] Loss: {}".format(global_step, phase, running_loss / len(data_loader)))
 
         global_epoch += 1
 
