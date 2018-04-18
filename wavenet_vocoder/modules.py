@@ -5,9 +5,24 @@ import math
 import numpy as np
 
 import torch
+from wavenet_vocoder import conv
 from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
+
+
+def Conv1d(in_channels, out_channels, kernel_size, dropout=0, std_mul=4.0, **kwargs):
+    m = conv.Conv1d(in_channels, out_channels, kernel_size, **kwargs)
+    std = math.sqrt((std_mul * (1.0 - dropout)) / (m.kernel_size[0] * in_channels))
+    m.weight.data.normal_(mean=0, std=std)
+    m.bias.data.zero_()
+    return nn.utils.weight_norm(m)
+
+
+def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
+    m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
+    m.weight.data.normal_(0, std)
+    return m
 
 
 def ConvTranspose2d(in_channels, out_channels, kernel_size,
@@ -26,13 +41,11 @@ def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
     """1-by-1 convolution layer
     """
     if weight_normalization:
-        from deepvoice3_pytorch.modules import Conv1d
         assert bias
         return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
                       dilation=1, bias=bias, std_mul=1.0)
     else:
-        from deepvoice3_pytorch.conv import Conv1d
-        return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+        return conv.Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
                       dilation=1, bias=bias)
 
 
@@ -85,14 +98,12 @@ class ResidualConv1dGLU(nn.Module):
         self.causal = causal
 
         if weight_normalization:
-            from deepvoice3_pytorch.modules import Conv1d
             assert bias
             self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
-                               dropout=dropout, padding=padding, dilation=dilation,
+                               padding=padding, dilation=dilation,
                                bias=bias, std_mul=1.0, *args, **kwargs)
         else:
-            from deepvoice3_pytorch.conv import Conv1d
-            self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
+            self.conv = conv.Conv1d(residual_channels, gate_channels, kernel_size,
                                padding=padding, dilation=dilation,
                                bias=bias, *args, **kwargs)
 
