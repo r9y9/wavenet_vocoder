@@ -9,7 +9,7 @@ from torch import nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
-from deepvoice3_pytorch.modules import Embedding
+from .modules import Embedding
 
 from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
@@ -317,12 +317,14 @@ class WaveNet(nn.Module):
                 initial_input = initial_input.transpose(1, 2).contiguous()
 
         current_input = initial_input
+
         for t in tqdm(range(T)):
             if test_inputs is not None and t < test_inputs.size(1):
                 current_input = test_inputs[:, t, :].unsqueeze(1)
             else:
                 if t > 0:
                     current_input = outputs[-1]
+                    current_input = Variable(current_input)
 
             # Conditioning features for single time step
             ct = None if c is None else c[:, t, :].unsqueeze(1)
@@ -352,8 +354,7 @@ class WaveNet(nn.Module):
                         np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
                     x.zero_()
                     x[:, sample] = 1.0
-            outputs += [x]
-
+            outputs += [x.data]
         # T x B x C
         outputs = torch.stack(outputs)
         # B x C x T

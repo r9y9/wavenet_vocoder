@@ -122,6 +122,8 @@ When this is done, you will see time-aligned extracted features (pairs of audio 
 
 ### 2. Training
 
+>Note: for multi gpu training, you have better ensure that batch_size % num_gpu == 0 
+
 Usage:
 
 ```

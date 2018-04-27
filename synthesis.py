@@ -34,6 +34,7 @@ import audio
 from hparams import hparams
 
 
+torch.set_num_threads(4)
 use_cuda = torch.cuda.is_available()
 
 
