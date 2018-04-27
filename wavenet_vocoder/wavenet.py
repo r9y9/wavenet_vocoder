@@ -356,7 +356,7 @@ class WaveNet(nn.Module):
                     x[:, sample] = 1.0
             outputs += [x.data]
         # T x B x C
-        outputs = torch.from_numpy(np.asarray(outputs)).float()
+        outputs = torch.stack(outputs)
         # B x C x T
         outputs = outputs.transpose(0, 1).transpose(1, 2).contiguous()
 
