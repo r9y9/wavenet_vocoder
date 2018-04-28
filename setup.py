@@ -57,7 +57,6 @@ setup(name='wavenet_vocoder',
           "numpy",
           "scipy",
           "torch >= 0.3.0",
-          "deepvoice3_pytorch >= 0.0.2",
       ],
       extras_require={
           "train": [
