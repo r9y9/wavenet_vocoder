@@ -389,7 +389,7 @@ Your browser does not support the audio element.
 | key                         | value |
 |---------------------------------|------------------------------------------------------|
 | Data                            | CMU ARCTIC (7580 for training, 350 for testing) |
-| Input type | 8-bit mu-law encoded one-hot vector |
+| Input type | 16-bit linear PCM |
 | Local conditioning            | 80-dim mel-spectrogram                               |
 | Hop size | 256 |
 | Global conditioning            | 16-dim speaker embedding [^1]                              |
