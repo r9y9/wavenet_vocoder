@@ -4,7 +4,6 @@ from __future__ import with_statement, print_function, absolute_import
 import numpy as np
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import functional as F
 
 import librosa
@@ -23,7 +22,7 @@ def log_prob_from_logits(x):
 
 
 def test_log_softmax():
-    x = Variable(torch.rand(2, 16000, 30))
+    x = torch.rand(2, 16000, 30)
     y = log_prob_from_logits(x)
     y_hat = F.log_softmax(x, -1)
 
@@ -40,8 +39,8 @@ def test_mixture():
 
     T = len(x)
     x = x.reshape(1, T, 1)
-    y = Variable(torch.from_numpy(x)).float()
-    y_hat = Variable(torch.rand(1, 30, T)).float()
+    y = torch.from_numpy(x).float()
+    y_hat = torch.rand(1, 30, T).float()
 
     print(y.shape, y_hat.shape)
 
@@ -60,19 +59,19 @@ def test_misc():
     # https://en.wikipedia.org/wiki/Logistic_distribution
     # what i have learned
     # m = (x - mu) / s
-    m = Variable(torch.rand(10, 10))
+    m = torch.rand(10, 10)
     log_pdf_mid1 = -2 * torch.log(torch.exp(m / 2) + torch.exp(-m / 2))
     log_pdf_mid2 = m - 2 * F.softplus(m)
     assert np.allclose(log_pdf_mid1.data.numpy(), log_pdf_mid2.data.numpy())
 
     # Edge case for 0
-    plus_in = Variable(torch.rand(10, 10))
+    plus_in = torch.rand(10, 10)
     log_cdf_plus1 = F.sigmoid(m).log()
     log_cdf_plus2 = m - F.softplus(m)
     assert np.allclose(log_cdf_plus1.data.numpy(), log_cdf_plus2.data.numpy())
 
     # Edge case for 255
-    min_in = Variable(torch.rand(10, 10))
+    min_in = torch.rand(10, 10)
     log_one_minus_cdf_min1 = (1 - F.sigmoid(min_in)).log()
     log_one_minus_cdf_min2 = -F.softplus(min_in)
     assert np.allclose(log_one_minus_cdf_min1.data.numpy(), log_one_minus_cdf_min2.data.numpy())

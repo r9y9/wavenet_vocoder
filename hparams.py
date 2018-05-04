@@ -97,6 +97,7 @@ hparams = tf.contrib.training.HParams(
     adam_beta1=0.9,
     adam_beta2=0.999,
     adam_eps=1e-8,
+    amsgrad=False,
     initial_learning_rate=1e-3,
     # see lrschedule.py for available lr_schedule
     lr_schedule="noam_learning_rate_decay",

@@ -7,7 +7,6 @@ import numpy as np
 import torch
 from wavenet_vocoder import conv
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import functional as F
 
 
@@ -46,7 +45,7 @@ def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
                       dilation=1, bias=bias, std_mul=1.0)
     else:
         return conv.Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                      dilation=1, bias=bias)
+                           dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
@@ -104,8 +103,8 @@ class ResidualConv1dGLU(nn.Module):
                                bias=bias, std_mul=1.0, *args, **kwargs)
         else:
             self.conv = conv.Conv1d(residual_channels, gate_channels, kernel_size,
-                               padding=padding, dilation=dilation,
-                               bias=bias, *args, **kwargs)
+                                    padding=padding, dilation=dilation,
+                                    bias=bias, *args, **kwargs)
 
         # local conditioning
         if cin_channels > 0:
@@ -139,13 +138,13 @@ class ResidualConv1dGLU(nn.Module):
         """Forward
 
         Args:
-            x (Variable): B x C x T
-            c (Variable): B x C x T, Local conditioning features
-            g (Variable): B x C x T, Expanded global conditioning features
+            x (Tensor): B x C x T
+            c (Tensor): B x C x T, Local conditioning features
+            g (Tensor): B x C x T, Expanded global conditioning features
             is_incremental (Bool) : Whether incremental mode or not
 
         Returns:
-            Variable: output
+            Tensor: output
         """
         residual = x
         x = F.dropout(x, p=self.dropout, training=self.training)

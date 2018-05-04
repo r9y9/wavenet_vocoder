@@ -1,7 +1,6 @@
 # coding: utf-8
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import functional as F
 
 
@@ -40,8 +39,7 @@ class Conv1d(nn.Conv1d):
                 self.input_buffer[:, :-1, :] = self.input_buffer[:, 1:, :].clone()
             # append next input
             self.input_buffer[:, -1, :] = input[:, -1, :]
-            with torch.no_grad():
-                input = torch.autograd.Variable(self.input_buffer)
+            input = self.input_buffer
             if dilation > 1:
                 input = input[:, 0::dilation, :].contiguous()
         output = F.linear(input.view(bsz, -1), weight, self.bias)

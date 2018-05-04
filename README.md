@@ -51,6 +51,7 @@ You can find a generated wav file in `generated` directory. Wonder how it works?
 
 - Python 3
 - CUDA >= 8.0
+- PyTorch >= v0.4.0
 - TensorFlow >= v1.3
 
 ## Installation
@@ -122,7 +123,7 @@ When this is done, you will see time-aligned extracted features (pairs of audio 
 
 ### 2. Training
 
->Note: for multi gpu training, you have better ensure that batch_size % num_gpu == 0 
+>Note: for multi gpu training, you have better ensure that batch_size % num_gpu == 0
 
 Usage:
 
