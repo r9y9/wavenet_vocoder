@@ -106,8 +106,7 @@ hparams = tf.contrib.training.HParams(
     weight_decay=0.0,
     clip_thresh=-1,
     # max time steps can either be specified as sec or steps
-    # This is needed for those who don't have huge GPU memory...
-    # if both are None, then full audio samples are used
+    # if both are None, then full audio samples are used in a batch
     max_time_sec=None,
     max_time_steps=8000,
     # Hold moving averaged parameters and use them for evaluation

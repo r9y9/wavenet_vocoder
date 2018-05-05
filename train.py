@@ -484,6 +484,7 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
     if ema is not None:
         print("Using averaged model for evaluation")
         model = clone_as_averaged_model(device, model, ema)
+        model.make_generation_fast_()
 
     model.eval()
     idx = np.random.randint(0, len(y))
