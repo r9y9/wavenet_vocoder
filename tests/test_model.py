@@ -225,7 +225,7 @@ def test_global_conditioning_with_embedding_correctness():
 
     x = torch.from_numpy(x).contiguous().to(device)
 
-    g = torch.from_numpy(g).contiguous().to(device)
+    g = torch.from_numpy(g).long().contiguous().to(device)
     print(g.size())
 
     model.eval()
@@ -297,7 +297,7 @@ def test_global_and_local_conditioning_correctness():
     c = torch.from_numpy(c).contiguous().to(device)
 
     # mean power
-    g = torch.from_numpy(g).contiguous().to(device)
+    g = torch.from_numpy(g).long().contiguous().to(device)
 
     print(c.size(), g.size())
 
