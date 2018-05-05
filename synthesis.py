@@ -21,7 +21,6 @@ import sys
 import os
 from os.path import dirname, join, basename, splitext
 import torch
-from torch.autograd import Variable
 import numpy as np
 from nnmnkwii import preprocessing as P
 from keras.utils import np_utils
@@ -36,6 +35,7 @@ from hparams import hparams
 
 torch.set_num_threads(4)
 use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
 
 
 def _to_numpy(x):
@@ -73,8 +73,6 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     c = _to_numpy(c)
     g = _to_numpy(g)
 
-    if use_cuda:
-        model = model.cuda()
     model.eval()
     if fast:
         model.make_generation_fast_()
@@ -97,7 +95,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
             c = np.repeat(c, upsample_factor, axis=0)
 
         # B x C x T
-        c = Variable(torch.FloatTensor(c.T).unsqueeze(0))
+        c = torch.FloatTensor(c.T).unsqueeze(0)
 
     if initial_value is None:
         if is_mulaw_quantize(hparams.input_type):
@@ -109,16 +107,17 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         assert initial_value >= 0 and initial_value < hparams.quantize_channels
         initial_input = np_utils.to_categorical(
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
-        initial_input = Variable(torch.from_numpy(initial_input)).view(
+        initial_input = torch.from_numpy(initial_input).view(
             1, 1, hparams.quantize_channels)
     else:
-        initial_input = Variable(torch.zeros(1, 1, 1)).fill_(initial_value)
+        initial_input = torch.zeros(1, 1, 1).fill_(initial_value)
 
-    g = None if g is None else Variable(torch.LongTensor([g]))
-    if use_cuda:
-        initial_input = initial_input.cuda()
-        g = None if g is None else g.cuda()
-        c = None if c is None else c.cuda()
+    g = None if g is None else torch.LongTensor([g])
+
+    # Transform data to GPU
+    initial_input = initial_input.to(device)
+    g = None if g is None else g.to(device)
+    c = None if c is None else c.to(device)
 
     y_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
@@ -168,7 +167,7 @@ if __name__ == "__main__":
     from train import build_model
 
     # Model
-    model = build_model()
+    model = build_model().to(device)
 
     # Load checkpoint
     print("Load checkpoint from {}".format(checkpoint_path))

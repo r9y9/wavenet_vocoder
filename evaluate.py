@@ -21,7 +21,6 @@ import sys
 import os
 from os.path import dirname, join, basename, splitext
 import torch
-from torch.autograd import Variable
 import numpy as np
 from nnmnkwii import preprocessing as P
 from keras.utils import np_utils
@@ -36,7 +35,7 @@ from hparams import hparams
 
 
 use_cuda = torch.cuda.is_available()
-
+device = torch.device("cuda" if use_cuda else "cpu")
 
 if __name__ == "__main__":
     args = docopt(__doc__)
@@ -72,7 +71,7 @@ if __name__ == "__main__":
     test_dataset = test_data_loader.dataset
 
     # Model
-    model = build_model()
+    model = build_model().to(device)
 
     # Load checkpoint
     print("Load checkpoint from {}".format(checkpoint_path))

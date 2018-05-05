@@ -10,7 +10,6 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import functional as F
 
 
@@ -30,15 +29,15 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
     Note that it is assumed that input is scaled to [-1, 1].
 
     Args:
-        y_hat (Variable): Predicted output (B x C x T)
-        y (Variable): Target (B x T x 1).
+        y_hat (Tensor): Predicted output (B x C x T)
+        y (Tensor): Target (B x T x 1).
         num_classes (int): Number of classes
         log_scale_min (float): Log scale minimum value
         reduce (bool): If True, the losses are averaged or summed for each
           minibatch.
 
     Returns
-        Variable: loss
+        Tensor: loss
     """
     assert y_hat.dim() == 3
     assert y_hat.size(1) % 3 == 0
@@ -112,7 +111,7 @@ def to_one_hot(tensor, n, fill_with=1.):
     if tensor.is_cuda:
         one_hot = one_hot.cuda()
     one_hot.scatter_(len(tensor.size()), tensor.unsqueeze(-1), fill_with)
-    return Variable(one_hot)
+    return one_hot
 
 
 def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
@@ -120,11 +119,11 @@ def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
     Sample from discretized mixture of logistic distributions
 
     Args:
-        y (Variable): B x C x T
+        y (Tensor): B x C x T
         log_scale_min (float): Log scale minimum value
 
     Returns:
-        Variable: sample in range of [-1, 1].
+        Tensor: sample in range of [-1, 1].
     """
     assert y.size(1) % 3 == 0
     nr_mix = y.size(1) // 3
@@ -146,7 +145,7 @@ def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
         y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1), min=log_scale_min)
     # sample from logistic & clip to interval
     # we don't actually round to the nearest 8bit value when sampling
-    u = Variable(means.data.new(means.size()).uniform_(1e-5, 1.0 - 1e-5))
+    u = means.data.new(means.size()).uniform_(1e-5, 1.0 - 1e-5)
     x = means + torch.exp(log_scales) * (torch.log(u) - torch.log(1. - u))
 
     x = torch.clamp(torch.clamp(x, min=-1.), max=1.)

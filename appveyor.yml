@@ -1,0 +1,39 @@
+environment:
+  matrix:
+    - PYTHON_VERSION: "3.6"
+      PYTHON_ARCH: "64"
+      MINICONDA: C:\Miniconda36-x64
+
+branches:
+  only:
+    - master
+    - /release-.*/
+
+skip_commits:
+  message: /\[av skip\]/
+
+notifications:
+  - provider: Email
+    on_build_success: false
+    on_build_failure: false
+    on_build_status_changed: false
+
+init:
+  - "ECHO %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA%"
+
+install:
+  - "SET PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
+  - conda config --set always_yes yes  --set changeps1 no
+  - conda update -q conda
+  - conda install -n root _license
+  - conda info -a
+  - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy cython nose pytorch -c pytorch"
+  - activate test-environment
+  # TODO: this should be removed
+  - pip install git+https://github.com/r9y9/bandmat@ci
+
+build_script:
+  - pip install -e ".[test]"
+
+test_script:
+  - nosetests -v -w tests/ -a "!local_only"

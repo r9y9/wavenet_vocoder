@@ -6,7 +6,6 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.nn import functional as F
 
 from .modules import Embedding
@@ -21,11 +20,11 @@ def _expand_global_features(B, T, g, bct=True):
     Args:
         B (int): Batch size.
         T (int): Time length.
-        g (Variable): Global features, (B x C) or (B x C x 1).
+        g (Tensor): Global features, (B x C) or (B x C x 1).
         bct (bool) : returns (B x C x T) if True, otherwise (B x T x C)
 
     Returns:
-        Variable: B x C x T or B x T x C or None
+        Tensor: B x C x T or B x T x C or None
     """
     if g is None:
         return None
@@ -177,10 +176,10 @@ class WaveNet(nn.Module):
         """Forward step
 
         Args:
-            x (Variable): One-hot encoded audio signal, shape (B x C x T)
-            c (Variable): Local conditioning features,
+            x (Tensor): One-hot encoded audio signal, shape (B x C x T)
+            c (Tensor): Local conditioning features,
               shape (B x cin_channels x T)
-            g (Variable): Global conditioning features,
+            g (Tensor): Global conditioning features,
               shape (B x gin_channels x 1) or speaker Ids of shape (B x 1).
               Note that ``self.use_speaker_embedding`` must be False when you
               want to disable embedding layer and use external features
@@ -190,7 +189,7 @@ class WaveNet(nn.Module):
             softmax (bool): Whether applies softmax or not.
 
         Returns:
-            Variable: output, shape B x out_channels x T
+            Tensor: output, shape B x out_channels x T
         """
         B, _, T = x.size()
 
@@ -244,11 +243,11 @@ class WaveNet(nn.Module):
         Input of each time step will be of shape (B x 1 x C).
 
         Args:
-            initial_input (Variable): Initial decoder input, (B x C x 1)
-            c (Variable): Local conditioning features, shape (B x C' x T)
-            g (Variable): Global conditioning features, shape (B x C'' or B x C''x 1)
+            initial_input (Tensor): Initial decoder input, (B x C x 1)
+            c (Tensor): Local conditioning features, shape (B x C' x T)
+            g (Tensor): Global conditioning features, shape (B x C'' or B x C''x 1)
             T (int): Number of time steps to generate.
-            test_inputs (Variable): Teacher forcing inputs (for debugging)
+            test_inputs (Tensor): Teacher forcing inputs (for debugging)
             tqdm (lamda) : tqdm
             softmax (bool) : Whether applies softmax or not
             quantize (bool): Whether quantize softmax output before feeding the
@@ -256,7 +255,7 @@ class WaveNet(nn.Module):
             log_scale_min (float):  Log scale minimum value.
 
         Returns:
-            Variable: Generated one-hot encoded samples. B x C x T　
+            Tensor: Generated one-hot encoded samples. B x C x T　
               or scaler vector B x 1 x T
         """
         self.clear_buffer()
@@ -305,9 +304,9 @@ class WaveNet(nn.Module):
         outputs = []
         if initial_input is None:
             if self.scalar_input:
-                initial_input = Variable(torch.zeros(B, 1, 1))
+                initial_input = torch.zeros(B, 1, 1)
             else:
-                initial_input = Variable(torch.zeros(B, 1, self.out_channels))
+                initial_input = torch.zeros(B, 1, self.out_channels)
                 initial_input[:, :, 127] = 1  # TODO: is this ok?
             # https://github.com/pytorch/pytorch/issues/584#issuecomment-275169567
             if next(self.parameters()).is_cuda:
@@ -324,7 +323,6 @@ class WaveNet(nn.Module):
             else:
                 if t > 0:
                     current_input = outputs[-1]
-                    current_input = Variable(current_input)
 
             # Conditioning features for single time step
             ct = None if c is None else c[:, t, :].unsqueeze(1)

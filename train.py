@@ -34,8 +34,6 @@ from wavenet_vocoder import builder
 import lrschedule
 
 import torch
-from torch.utils import data as data_utils
-from torch.autograd import Variable
 from torch import nn
 from torch.nn import functional as F
 from torch import optim
@@ -265,7 +263,6 @@ def sequence_mask(sequence_length, max_len=None):
     batch_size = sequence_length.size(0)
     seq_range = torch.arange(0, max_len).long()
     seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
-    seq_range_expand = Variable(seq_range_expand, requires_grad=False)
     if sequence_length.is_cuda:
         seq_range_expand = seq_range_expand.cuda()
     seq_length_expand = sequence_length.unsqueeze(1) \
@@ -289,11 +286,9 @@ class ExponentialMovingAverage(object):
         self.shadow[name] -= (1.0 - self.decay) * update_delta
 
 
-def clone_as_averaged_model(model, ema):
+def clone_as_averaged_model(device, model, ema):
     assert ema is not None
-    averaged_model = build_model()
-    if use_cuda:
-        averaged_model = averaged_model.cuda()
+    averaged_model = build_model().to(device)
     averaged_model.load_state_dict(model.state_dict())
     for name, param in averaged_model.named_parameters():
         if name in ema.shadow:
@@ -372,7 +367,6 @@ def collate_fn(batch):
     local_conditioning = len(batch[0]) >= 2 and hparams.cin_channels > 0
     global_conditioning = len(batch[0]) >= 3 and hparams.gin_channels > 0
 
-    # To save GPU memory... I don't want to do this though
     if hparams.max_time_sec is not None:
         max_time_steps = int(hparams.max_time_sec * hparams.sample_rate)
     elif hparams.max_time_steps is not None:
@@ -486,14 +480,14 @@ def save_waveplot(path, y_hat, y_target):
     plt.close()
 
 
-def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema=None):
+def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_dir, ema=None):
     if ema is not None:
         print("Using averaged model for evaluation")
-        model = clone_as_averaged_model(model, ema)
+        model = clone_as_averaged_model(device, model, ema)
 
     model.eval()
     idx = np.random.randint(0, len(y))
-    length = input_lengths[idx].data.cpu().numpy()[0]
+    length = input_lengths[idx].data.cpu().item()
 
     # (T,)
     y_target = y[idx].view(-1).data.cpu().numpy()[:length]
@@ -520,11 +514,11 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     if is_mulaw_quantize(hparams.input_type):
         initial_input = np_utils.to_categorical(
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
-        initial_input = Variable(torch.from_numpy(initial_input)).view(
+        initial_input = torch.from_numpy(initial_input).view(
             1, 1, hparams.quantize_channels)
     else:
-        initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
-    initial_input = initial_input.cuda() if use_cuda else initial_input
+        initial_input = torch.zeros(1, 1, 1).fill_(initial_value)
+    initial_input = initial_input.to(device)
 
     # Run the model in fast eval mode
     y_hat = model.incremental_forward(
@@ -556,7 +550,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
 def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=None):
     print("Save intermediate states at step {}".format(global_step))
     idx = np.random.randint(0, len(y_hat))
-    length = input_lengths[idx].data.cpu().numpy()[0]
+    length = input_lengths[idx].data.cpu().item()
 
     # (B, C, T)
     if y_hat.dim() == 4:
@@ -597,7 +591,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     librosa.output.write_wav(path, y, sr=hparams.sample_rate)
 
 
-def __train_step(phase, epoch, global_step, global_test_step,
+def __train_step(device, phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
                  x, y, c, g, input_lengths,
                  checkpoint_dir, eval_dir=None, do_eval=False, ema=None):
@@ -627,15 +621,10 @@ def __train_step(phase, epoch, global_step, global_test_step,
     optimizer.zero_grad()
 
     # Prepare data
-    x, y = Variable(x), Variable(y, requires_grad=False)
-    c = Variable(c) if c is not None else None
-    g = Variable(g) if g is not None else None
-    input_lengths = Variable(input_lengths)
-    if use_cuda:
-        x, y = x.cuda(), y.cuda()
-        input_lengths = input_lengths.cuda()
-        c = c.cuda() if c is not None else None
-        g = g.cuda() if g is not None else None
+    x, y = x.to(device), y.to(device)
+    input_lengths = input_lengths.to(device)
+    c = c.to(device) if c is not None else None
+    g = g.to(device) if g is not None else None
 
     # (B, T, 1)
     mask = sequence_mask(input_lengths, max_len=x.size(-1)).unsqueeze(-1)
@@ -659,17 +648,17 @@ def __train_step(phase, epoch, global_step, global_test_step,
 
     if train and step > 0 and step % hparams.checkpoint_interval == 0:
         save_states(step, writer, y_hat, y, input_lengths, checkpoint_dir)
-        save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema)
+        save_checkpoint(device, model, optimizer, step, checkpoint_dir, epoch, ema)
 
     if do_eval:
         # NOTE: use train step (i.e., global_step) for filename
-        eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema)
+        eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_dir, ema)
 
     # Update
     if train:
         loss.backward()
         if clip_thresh > 0:
-            grad_norm = torch.nn.utils.clip_grad_norm(model.parameters(), clip_thresh)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_thresh)
         optimizer.step()
         # update moving average
         if ema is not None:
@@ -678,19 +667,16 @@ def __train_step(phase, epoch, global_step, global_test_step,
                     ema.update(name, param.data)
 
     # Logs
-    writer.add_scalar("{} loss".format(phase), float(loss.data[0]), step)
+    writer.add_scalar("{} loss".format(phase), float(loss.item()), step)
     if train:
         if clip_thresh > 0:
             writer.add_scalar("gradient norm", grad_norm, step)
         writer.add_scalar("learning rate", current_lr, step)
 
-    return loss.data[0]
+    return loss.item()
 
 
-def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
-    if use_cuda:
-        model = model.cuda()
-
+def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=None):
     if is_mulaw_quantize(hparams.input_type):
         criterion = MaskedCrossEntropyLoss()
     else:
@@ -729,10 +715,10 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
                     print("[{}] Eval at train step {}".format(phase, global_step))
 
                 # Do step
-                running_loss += __train_step(
-                    phase, global_epoch, global_step, global_test_step, model,
-                    optimizer, writer, criterion, x, y, c, g, input_lengths,
-                    checkpoint_dir, eval_dir, do_eval, ema)
+                running_loss += __train_step(device,
+                                             phase, global_epoch, global_step, global_test_step, model,
+                                             optimizer, writer, criterion, x, y, c, g, input_lengths,
+                                             checkpoint_dir, eval_dir, do_eval, ema)
 
                 # update global state
                 if train:
@@ -744,12 +730,13 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             averaged_loss = running_loss / len(data_loader)
             writer.add_scalar("{} loss (per epoch)".format(phase),
                               averaged_loss, global_epoch)
-            print("Step {} [{}] Loss: {}".format(global_step, phase, running_loss / len(data_loader)))
+            print("Step {} [{}] Loss: {}".format(
+                global_step, phase, running_loss / len(data_loader)))
 
         global_epoch += 1
 
 
-def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema=None):
+def save_checkpoint(device, model, optimizer, step, checkpoint_dir, epoch, ema=None):
     checkpoint_path = join(
         checkpoint_dir, "checkpoint_step{:09d}.pth".format(global_step))
     optimizer_state = optimizer.state_dict() if hparams.save_optimizer_state else None
@@ -764,7 +751,7 @@ def save_checkpoint(model, optimizer, step, checkpoint_dir, epoch, ema=None):
     print("Saved checkpoint:", checkpoint_path)
 
     if ema is not None:
-        averaged_model = clone_as_averaged_model(model, ema)
+        averaged_model = clone_as_averaged_model(device, model, ema)
         checkpoint_path = join(
             checkpoint_dir, "checkpoint_step{:09d}_ema.pth".format(global_step))
         torch.save({
@@ -945,11 +932,10 @@ if __name__ == "__main__":
     # Dataloader setup
     data_loaders = get_data_loaders(data_root, speaker_id, test_shuffle=True)
 
+    device = torch.device("cuda" if use_cuda else "cpu")
+
     # Model
-    model = build_model()
-    print(model)
-    if use_cuda:
-        model = model.cuda()
+    model = build_model().to(device)
 
     receptive_field = model.receptive_field
     print("Receptive field (samples / ms): {} / {}".format(
@@ -958,7 +944,8 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(),
                            lr=hparams.initial_learning_rate, betas=(
         hparams.adam_beta1, hparams.adam_beta2),
-        eps=hparams.adam_eps, weight_decay=hparams.weight_decay)
+        eps=hparams.adam_eps, weight_decay=hparams.weight_decay,
+        amsgrad=hparams.amsgrad)
 
     if checkpoint_restore_parts is not None:
         restore_parts(checkpoint_restore_parts, model)
@@ -975,13 +962,14 @@ if __name__ == "__main__":
 
     # Train!
     try:
-        train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=checkpoint_dir)
+        train_loop(device, model, data_loaders, optimizer, writer,
+                   checkpoint_dir=checkpoint_dir)
     except KeyboardInterrupt:
         print("Interrupted!")
         pass
     finally:
         save_checkpoint(
-            model, optimizer, global_step, checkpoint_dir, global_epoch)
+            device, model, optimizer, global_step, checkpoint_dir, global_epoch)
 
     print("Finished")
 
