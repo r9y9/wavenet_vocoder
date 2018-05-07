@@ -522,9 +522,10 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
     initial_input = initial_input.to(device)
 
     # Run the model in fast eval mode
-    y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm,
-        log_scale_min=hparams.log_scale_min)
+    with torch.no_grad():
+        y_hat = model.incremental_forward(
+            initial_input, c=c, g=g, T=length, softmax=True, quantize=True, tqdm=tqdm,
+            log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()

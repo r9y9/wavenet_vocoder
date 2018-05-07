@@ -119,9 +119,10 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
     g = None if g is None else g.to(device)
     c = None if c is None else c.to(device)
 
-    y_hat = model.incremental_forward(
-        initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
-        log_scale_min=hparams.log_scale_min)
+    with with torch.no_grad():
+        y_hat = model.incremental_forward(
+            initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
+            log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
