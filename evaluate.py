@@ -85,6 +85,8 @@ if __name__ == "__main__":
     generated_utterances = {}
     for idx, (x, c, g) in enumerate(test_dataset):
         target_audio_path = test_dataset.X.collected_files[idx][0]
+        if g is None and num_utterances > idx:
+            break
         if num_utterances > 0 and g is not None:
             try:
                 generated_utterances[g] += 1
