@@ -66,6 +66,7 @@ setup(name='wavenet_vocoder',
               "nnmnkwii >= 0.0.11",
               "keras",
               "scikit-learn",
+              "lws <= 1.0",
           ],
           "test": [
               "nose",
