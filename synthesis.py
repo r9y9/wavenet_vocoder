@@ -10,6 +10,8 @@ options:
     --length=<T>                      Steps to generate [default: 32000].
     --initial-value=<n>               Initial value for the WaveNet decoder.
     --conditional=<p>                 Conditional features path.
+    --symmetric-mels                  Symmetric mel.
+    --max-abs-value=<N>               Max abs value [default: -1].
     --file-name-suffix=<s>            File name suffix [default: ].
     --speaker-id=<id>                 Speaker ID (for multi-speaker model).
     --output-html                     Output html for blog post.
@@ -145,6 +147,10 @@ if __name__ == "__main__":
     initial_value = args["--initial-value"]
     initial_value = None if initial_value is None else float(initial_value)
     conditional_path = args["--conditional"]
+    # From https://github.com/Rayhane-mamah/Tacotron-2
+    symmetric_mels = args["--symmetric-mels"]
+    max_abs_value = float(args["--max-abs-value"])
+
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
     speaker_id = args["--speaker-id"]
@@ -162,6 +168,14 @@ if __name__ == "__main__":
     # Load conditional features
     if conditional_path is not None:
         c = np.load(conditional_path)
+        if c.shape[1] != hparams.num_mels:
+            np.swapaxes(c, 0, 1)
+        if max_abs_value > 0:
+            min_, max_ = 0, max_abs_value
+            if symmetric_mels:
+                min_ = -max_
+            print("Normalize features to desired range [0, 1] from [{}, {}]".format(min_, max_))
+            c = np.interp(c, (min_, max_), (0, 1))
     else:
         c = None
 
