@@ -41,7 +41,7 @@ Text-to-speech samples are found at the last section.</p>
 <li>WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)</li>
 <li>WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz)</li>
 <li>WN conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM, 16kHz)</li>
-<li>Tacotron2 + WN text-to-speech (<strong>New!</strong>)</li>
+<li>Tacotron2: WN-based text-to-speech (<strong>New!</strong>)</li>
 </ul>
 
 <h2 id="wn-conditioned-on-mel-spectrogram-16-bit-linear-pcm-22-5khz">WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)</h2>
@@ -588,10 +588,10 @@ Your browser does not support the audio element.
 </tbody>
 </table>
 
-<h2 id="tacotron2-wn-text-to-speech">Tacotron2 + WN text-to-speech</h2>
+<h2 id="tacotron2-wn-based-text-to-speech">Tacotron2: WN-based text-to-speech</h2>
 
 <ul>
-<li>Tacotron2: trained 189k steps on LJSpeech dataset (<a href="https://www.dropbox.com/s/vx7y4qqs732sqgg/pretrained.tar.gz?dl=0">Pre-trained model</a>, <a href="https://github.com/r9y9/Tacotron-2/blob/9ce1a0e65b9217cdc19599c192c5cd68b4cece5b/hparams.py">Hyper params</a>). The work has been done by <a href="https://github.com/Rayhane-mamah">@Rayhane-mamah</a>. See <a href="https://github.com/Rayhane-mamah/Tacotron-2">https://github.com/Rayhane-mamah/Tacotron-2</a> for details.</li>
+<li>Tacotron2 (mel-spectrogram prediction part): trained 189k steps on LJSpeech dataset (<a href="https://www.dropbox.com/s/vx7y4qqs732sqgg/pretrained.tar.gz?dl=0">Pre-trained model</a>, <a href="https://github.com/r9y9/Tacotron-2/blob/9ce1a0e65b9217cdc19599c192c5cd68b4cece5b/hparams.py">Hyper params</a>). The work has been done by <a href="https://github.com/Rayhane-mamah">@Rayhane-mamah</a>. See <a href="https://github.com/Rayhane-mamah/Tacotron-2">https://github.com/Rayhane-mamah/Tacotron-2</a> for details.</li>
 <li>WaveNet: trained over 1000k steps on LJSpeech dataset (<a href="https://www.dropbox.com/s/zdbfprugbagfp2w/20180510_mixture_lj_checkpoint_step000320000_ema.pth?dl=0">Pre-trained model</a>, <a href="https://www.dropbox.com/s/0vsd7973w20eskz/20180510_mixture_lj_checkpoint_step000320000_ema.json?dl=0">Hyper params</a>)</li>
 </ul>
 
@@ -737,8 +737,7 @@ Your browser does not support the audio element.
 
 <h3 id="on-line-demo">On-line demo</h3>
 
-<p>A demonstration notebook supposed to be run on Google colab can be found at <a href="https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb">Tacotron2 + WaveNet text-to-speech demo
-</a>.</p>
+<p>A demonstration notebook supposed to be run on Google colab can be found at <a href="https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb">Tacotron2: WaveNet-basd text-to-speech demo</a>.</p>
 
 <h2 id="references">References</h2>
 

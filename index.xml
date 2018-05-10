@@ -18,7 +18,7 @@
       
       <guid>https://r9y9.github.io/wavenet_vocoder/index/</guid>
       <description>Github: https://github.com/r9y9/wavenet_vocoder  This page provides audio samples for the open source implementation of the WaveNet (WN) vocoder. Text-to-speech samples are found at the last section.
- WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz) WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz) WN conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM, 16kHz) Tacotron2 + WN text-to-speech (New!)  WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)  Samples from a model trained for over 400k steps.</description>
+ WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz) WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz) WN conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM, 16kHz) Tacotron2: WN-based text-to-speech (New!)  WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)  Samples from a model trained for over 400k steps.</description>
     </item>
     
   </channel>
