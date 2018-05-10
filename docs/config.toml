@@ -5,6 +5,7 @@ author = "Ryuichi YAMAMOTO"
 
 [params]
   author    = "Ryuichi YAMAMOTO"
+  project   = "wavenet_vocoder"
   logo      = "/images/r9y9.jpg"
   twitter   = "r9y9"
   github    = "r9y9"
