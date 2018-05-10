@@ -8,21 +8,25 @@ The goal of the repository is to provide an implementation of the WaveNet vocode
 
 Audio samples are available at https://r9y9.github.io/wavenet_vocoder/.
 
-See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
+## Online TTS demo
 
+A notebook supposed to be executed on https://colab.research.google.com is available:
+
+- [Tacotron2 + WaveNet text-to-speech demo](https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb)
 
 ## Highlights
 
 - Focus on local and global conditioning of WaveNet, which is essential for vocoder.
-- Mixture of logistic distributions loss / sampling (experimental)
+- Mixture of logistic distributions loss / sampling
+- Various audio samples and pre-trained models
 
 ## Pre-trained models
 
-**Note**: This is not a text-to-speech (TTS) model. With a pre-trained model provided here, you can synthesize waveform given a *mel spectrogram*, not raw text. Pre-trained models for TTS are planed to be released once I finish up [deepvoice3_pytorch/#21](https://github.com/r9y9/deepvoice3_pytorch/pull/21).
+**Note**: This is not itself a text-to-speech (TTS) model. With a pre-trained model provided here, you can synthesize waveform given a *mel spectrogram*, not raw text. You will need mel-spectrogram prediction model (such as Tacotron2) to use the pre-trained models for TTS.
 
 | Model URL                                                                                                                        | Data       | Hyper params URL                                                                                     | Git commit                                                                                         | Steps         |
 |----------------------------------------------------------------------------------------------------------------------------------|------------|------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|---------------|
-| [link](https://www.dropbox.com/s/8qgcbd1mm2xsqgq/20180127_mixture_lj_checkpoint_step000410000_ema.pth?dl=0)                      | LJSpeech   | [link](https://www.dropbox.com/s/stxasitb56y1zw8/20180127_ljspeech_mixture.json?dl=0)                | [489e6fa](https://github.com/r9y9/wavenet_vocoder/commit/489e6fa92eda9ecf5b953b2783d5975d2fdee27a) | 1000k~  steps |
+| [link](https://www.dropbox.com/s/zdbfprugbagfp2w/20180510_mixture_lj_checkpoint_step000320000_ema.pth?dl=0)                      | LJSpeech   | [link](https://www.dropbox.com/s/0vsd7973w20eskz/20180510_mixture_lj_checkpoint_step000320000_ema.json?dl=0)                | [2092a64](https://github.com/r9y9/wavenet_vocoder/commit/2092a647e60ce002389818de1fa66d0a2c5763d8) | 1000k~  steps |
 | [link](https://www.dropbox.com/s/d0qk4ow9uuh2lww/20180212_mixture_multispeaker_cmu_arctic_checkpoint_step000740000_ema.pth?dl=0) | CMU ARCTIC | [link](https://www.dropbox.com/s/i35yigj5hvmeol8/20180212_multispeaker_cmu_arctic_mixture.json?dl=0) | [b1a1076](https://github.com/r9y9/wavenet_vocoder/tree/b1a1076e8b5d9b3e275c28f2f7f4d7cd0e75dae4)   | 740k steps    |
 
 To use pre-trained models, first checkout the specific git commit noted above. i.e.,
