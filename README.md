@@ -12,7 +12,7 @@ Audio samples are available at https://r9y9.github.io/wavenet_vocoder/.
 
 A notebook supposed to be executed on https://colab.research.google.com is available:
 
-- [Tacotron2 + WaveNet text-to-speech demo](https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb)
+- [Tacotron2: WaveNet-based text-to-speech demo](https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb)
 
 ## Highlights
 

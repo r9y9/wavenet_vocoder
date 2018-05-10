@@ -18,7 +18,7 @@ Text-to-speech samples are found at the last section.
 - WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)
 - WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz)
 - WN conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM, 16kHz)
-- Tacotron2 + WN text-to-speech (**New!**)
+- Tacotron2: WN-based text-to-speech (**New!**)
 
 ## WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)
 
@@ -403,9 +403,9 @@ Your browser does not support the audio element.
 
 [^1]: Note that mel-spectrogram used in local conditioning is dependent on speaker characteristics, so we cannot simply change the speaker identity of the generated audio samples using the model. It should work without speaker embedding, but it might have helped training speed.
 
-## Tacotron2 + WN text-to-speech
+## Tacotron2: WN-based text-to-speech
 
-- Tacotron2: trained 189k steps on LJSpeech dataset ([Pre-trained model](https://www.dropbox.com/s/vx7y4qqs732sqgg/pretrained.tar.gz?dl=0), [Hyper params](https://github.com/r9y9/Tacotron-2/blob/9ce1a0e65b9217cdc19599c192c5cd68b4cece5b/hparams.py)). The work has been done by [@Rayhane-mamah](https://github.com/Rayhane-mamah). See https://github.com/Rayhane-mamah/Tacotron-2 for details.
+- Tacotron2 (mel-spectrogram prediction part): trained 189k steps on LJSpeech dataset ([Pre-trained model](https://www.dropbox.com/s/vx7y4qqs732sqgg/pretrained.tar.gz?dl=0), [Hyper params](https://github.com/r9y9/Tacotron-2/blob/9ce1a0e65b9217cdc19599c192c5cd68b4cece5b/hparams.py)). The work has been done by [@Rayhane-mamah](https://github.com/Rayhane-mamah). See https://github.com/Rayhane-mamah/Tacotron-2 for details.
 - WaveNet: trained over 1000k steps on LJSpeech dataset ([Pre-trained model](https://www.dropbox.com/s/zdbfprugbagfp2w/20180510_mixture_lj_checkpoint_step000320000_ema.pth?dl=0), [Hyper params](https://www.dropbox.com/s/0vsd7973w20eskz/20180510_mixture_lj_checkpoint_step000320000_ema.json?dl=0))
 
 
@@ -569,8 +569,7 @@ Your browser does not support the audio element.
 
 ### On-line demo
 
-A demonstration notebook supposed to be run on Google colab can be found at [Tacotron2 + WaveNet text-to-speech demo
-](https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb).
+A demonstration notebook supposed to be run on Google colab can be found at [Tacotron2: WaveNet-basd text-to-speech demo](https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb).
 
 
 ## References
