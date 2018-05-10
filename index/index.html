@@ -6,11 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,700" rel="stylesheet" type="text/css">
 <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/github.min.css">
-<link rel="stylesheet" href="/css/normalize.css">
-<link rel="stylesheet" href="/css/skeleton.css">
-<link rel="stylesheet" href="/css/custom.css">
-<link rel="alternate" href="/index.xml" type="application/rss+xml" title="An open source implementation of WaveNet vocoder">
-<link rel="shortcut icon" href="/favicon.png" type="image/x-icon" />
+<link rel="stylesheet" href="/wavenet_vocoder/css/normalize.css">
+<link rel="stylesheet" href="/wavenet_vocoder/css/skeleton.css">
+<link rel="stylesheet" href="/wavenet_vocoder/css/custom.css">
+<link rel="alternate" href="/wavenet_vocoder/index.xml" type="application/rss+xml" title="An open source implementation of WaveNet vocoder">
+<link rel="shortcut icon" href="/wavenet_vocoder/favicon.png" type="image/x-icon" />
 <title>index - An open source implementation of WaveNet vocoder</title>
 </head>
 <body>
@@ -19,7 +19,7 @@
 
 	<header role="banner">
 		<div class="header-logo">
-			<a href="/"><img src="/images/r9y9.jpg" width="70" height="70"></a>
+			<a href="/"><img src="/wavenet_vocoder//images/r9y9.jpg" width="70" height="70"></a>
 		</div>
 		
 	</header>
@@ -38,14 +38,15 @@
 <li>Github: <a href="https://github.com/r9y9/wavenet_vocoder">https://github.com/r9y9/wavenet_vocoder</a></li>
 </ul>
 
-<p>This page provides audio samples for the open source implementation of the <strong>WaveNet (WN)</strong> vocoder.</p>
+<p>This page provides audio samples for the open source implementation of the <strong>WaveNet (WN)</strong> vocoder.
+Text-to-speech samples are found at the last section.</p>
 
-<ol>
+<ul>
 <li>WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)</li>
 <li>WN conditioned on mel-spectrogram (8-bit mu-law, 16kHz)</li>
 <li>WN conditioned on mel-spectrogram and speaker-embedding (16-bit linear PCM, 16kHz)</li>
-<li>(Not yet) DeepVoice3 + WaveNet vocoder</li>
-</ol>
+<li>Tacotron2 + WN text-to-speech (<strong>New!</strong>)</li>
+</ul>
 
 <h2 id="wn-conditioned-on-mel-spectrogram-16-bit-linear-pcm-22-5khz">WN conditioned on mel-spectrogram (16-bit linear PCM, 22.5kHz)</h2>
 
@@ -591,9 +592,157 @@ Your browser does not support the audio element.
 </tbody>
 </table>
 
-<h2 id="deepvoice3-wavenet-vocoder">DeepVoice3 + WaveNet vocoder</h2>
+<h2 id="tacotron2-wn-text-to-speech">Tacotron2 + WN text-to-speech</h2>
 
-<p>TODO</p>
+<ul>
+<li>Tacotron2: trained 189k steps on LJSpeech dataset (<a href="https://www.dropbox.com/s/vx7y4qqs732sqgg/pretrained.tar.gz?dl=0">Pre-trained model</a>, <a href="https://github.com/r9y9/Tacotron-2/blob/9ce1a0e65b9217cdc19599c192c5cd68b4cece5b/hparams.py">Hyper params</a>). The work has been done by <a href="https://github.com/Rayhane-mamah">@Rayhane-mamah</a>. See <a href="https://github.com/Rayhane-mamah/Tacotron-2">https://github.com/Rayhane-mamah/Tacotron-2</a> for details.</li>
+<li>WaveNet: trained over 1000k steps on LJSpeech dataset (<a href="https://www.dropbox.com/s/zdbfprugbagfp2w/20180510_mixture_lj_checkpoint_step000320000_ema.pth?dl=0">Pre-trained model</a>, <a href="https://www.dropbox.com/s/0vsd7973w20eskz/20180510_mixture_lj_checkpoint_step000320000_ema.json?dl=0">Hyper params</a>)</li>
+</ul>
+
+<p>Scientists at the CERN laboratory say they have discovered a new particle.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00001.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>There&rsquo;s a way to measure the acute emotional intelligence that has never gone out of style.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00002.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>President Trump met with other leaders at the Group of 20 conference.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00003.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>The Senate&rsquo;s bill to repeal and replace the Affordable Care Act is now imperiled.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00004.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Generative adversarial network or variational auto-encoder.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00005.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Basilar membrane and otolaryngology are not auto-correlations.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00006.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>He has read the whole thing.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00007.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>He reads books.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00008.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Don&rsquo;t desert me here in the desert!</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00009.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>He thought it was time to present the present.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00010.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Thisss isrealy awhsome.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00011.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Punctuation sensitivity, is working.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00012.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Punctuation sensitivity is working.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00013.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>The buses aren&rsquo;t the problem, they actually provide a solution.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00014.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>The buses aren&rsquo;t the PROBLEM, they actually provide a SOLUTION.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00015.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>The quick brown fox jumps over the lazy dog.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00016.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Does the quick brown fox jump over the lazy dog?</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00017.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>Peter Piper picked a peck of pickled peppers. How many pickled peppers did Peter Piper pick?</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00018.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>She sells sea-shells on the sea-shore. The shells she sells are sea-shells I&rsquo;m sure.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00019.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<p>The blue lagoon is a nineteen eighty American romance adventure film.</p>
+
+<p><audio controls="controls" >
+<source src="/wavenet_vocoder/audio/tacotron2/20180510_mixture_lj_checkpoint_step000320000_ema_speech-mel-00020.wav" autoplay/>
+Your browser does not support the audio element.
+</audio></p>
+
+<h3 id="on-line-demo">On-line demo</h3>
+
+<p>A demonstration notebook supposed to be run on Google colab can be found at <a href="https://colab.research.google.com/github/r9y9/Colaboratory/blob/master/Tacotron2_and_WaveNet_text_to_speech_demo.ipynb">Tacotron2 + WaveNet text-to-speech demo
+</a>.</p>
 
 <h2 id="references">References</h2>
 
@@ -603,6 +752,7 @@ Your browser does not support the audio element.
 <li><a href="http://www.isca-speech.org/archive/Interspeech_2017/pdfs/0314.PDF">Tamamori, Akira, et al. &ldquo;Speaker-dependent WaveNet vocoder.&rdquo; Proceedings of Interspeech. 2017.</a></li>
 <li><a href="https://arxiv.org/abs/1712.05884">Jonathan Shen, Ruoming Pang, Ron J. Weiss, et al, &ldquo;Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions&rdquo;, arXiv:1712.05884, Dec 2017.</a></li>
 <li><a href="https://arxiv.org/abs/1710.07654">Wei Ping, Kainan Peng, Andrew Gibiansky, et al, &ldquo;Deep Voice 3: 2000-Speaker Neural Text-to-Speech&rdquo;, arXiv:1710.07654, Oct. 2017.</a></li>
+<li><a href="https://arxiv.org/abs/1712.05884">Jonathan Shen, Ruoming Pang, Ron J. Weiss, et al, &ldquo;Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions&rdquo;,    arXiv:1712.05884, Dec 2017.</a></li>
 </ul>
 <div class="footnotes">
 
