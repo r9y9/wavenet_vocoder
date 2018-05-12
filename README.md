@@ -40,13 +40,14 @@ And then follows "Synthesize from a checkpoint" section in the README. Note that
 You could try for example:
 
 ```
-# Assuming you have downloaded LJSpeech-1.0 at ~/data/LJSpeech-1.0
-# pretrained model (20180127_mixture_lj_checkpoint_step000410000_ema.pth)
-git checkout 489e6fa
-python preprocess.py ljspeech ~/data/LJSpeech-1.0 ./data/ljspeech
-python synthesis.py --hparams="input_type=raw,quantize_channels=65536,out_channels=30" \
+# Assuming you have downloaded LJSpeech-1.1 at ~/data/LJSpeech-1.1
+# pretrained model (20180510_mixture_lj_checkpoint_step000320000_ema.pth)
+# hparams (20180510_mixture_lj_checkpoint_step000320000_ema.json)
+git checkout 2092a64
+python preprocess.py ljspeech ~/data/LJSpeech-1.1 ./data/ljspeech
+python synthesis.py --preset=20180510_mixture_lj_checkpoint_step000320000_ema.json \
   --conditional=./data/ljspeech/ljspeech-mel-00001.npy \
-  20180127_mixture_lj_checkpoint_step000410000_ema.pth \
+  20180510_mixture_lj_checkpoint_step000320000_ema.pth \
   generated
 ```
 
@@ -64,8 +65,7 @@ You can find a generated wav file in `generated` directory. Wonder how it works?
 The repository contains a core library (PyTorch implementation of the WaveNet) and utility scripts. All the library and its dependencies can be installed by:
 
 ```
-git clone https://github.com/r9y9/wavenet_vocoder
-cd wavenet_vocoder
+git clone https://github.com/r9y9/wavenet_vocoder && cd wavenet_vocoder
 pip install -e ".[train]"
 ```
 
