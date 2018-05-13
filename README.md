@@ -44,7 +44,8 @@ You could try for example:
 # pretrained model (20180510_mixture_lj_checkpoint_step000320000_ema.pth)
 # hparams (20180510_mixture_lj_checkpoint_step000320000_ema.json)
 git checkout 2092a64
-python preprocess.py ljspeech ~/data/LJSpeech-1.1 ./data/ljspeech
+python preprocess.py ljspeech ~/data/LJSpeech-1.1 ./data/ljspeech \
+  --preset=20180510_mixture_lj_checkpoint_step000320000_ema.json
 python synthesis.py --preset=20180510_mixture_lj_checkpoint_step000320000_ema.json \
   --conditional=./data/ljspeech/ljspeech-mel-00001.npy \
   20180510_mixture_lj_checkpoint_step000320000_ema.pth \
