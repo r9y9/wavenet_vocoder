@@ -59,8 +59,6 @@ from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
 import audio
 from hparams import hparams, hparams_debug_string
 
-fs = hparams.sample_rate
-
 global_step = 0
 global_test_step = 0
 global_epoch = 0
@@ -928,6 +926,8 @@ if __name__ == "__main__":
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
     print(hparams_debug_string())
+    
+    fs = hparams.sample_rate
 
     os.makedirs(checkpoint_dir, exist_ok=True)
 
