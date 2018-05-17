@@ -89,8 +89,12 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
             assert c.ndim == 2
         Tc = c.shape[0]
         upsample_factor = audio.get_hop_size()
-        # Overwrite length according to feature size
-        length = Tc * upsample_factor
+        if length is None:
+            length = Tc * upsample_factor
+        else:
+            num_frames = int(length // upsample_factor) 
+            length = num_frames * upsample_factor
+            c = c[:num_frames]
         # (Tc, D) -> (Tc', D)
         # Repeat features before feeding it to the network
         if not hparams.upsample_conditional_features:
