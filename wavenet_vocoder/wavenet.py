@@ -221,8 +221,6 @@ class WaveNet(nn.Module):
                 skips = h
             else:
                 skips += h
-                skips *= math.sqrt(0.5)
-            # skips = h if skips is None else (skips + h) * math.sqrt(0.5)
 
         x = skips
         for f in self.last_conv_layers:
@@ -333,7 +331,7 @@ class WaveNet(nn.Module):
             skips = None
             for f in self.conv_layers:
                 x, h = f.incremental_forward(x, ct, gt)
-                skips = h if skips is None else (skips + h) * math.sqrt(0.5)
+                skips = h if skips is None else (skips + h)
             x = skips
             for f in self.last_conv_layers:
                 try:
