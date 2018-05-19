@@ -79,7 +79,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         model.make_generation_fast_()
 
     if c is None:
-        length = 32000
+        length = 32000 if length is None else length
     else:
         # (Tc, D)
         if c.ndim != 2:
