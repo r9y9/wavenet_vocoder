@@ -219,7 +219,7 @@ Usage:
 
 ```
 python evaluate.py ${checkpoint_path} ${output_dir} --data-root="data location"\
-    --hparams="parameters you want to override"
+    --preset=<json> --hparams="parameters you want to override"
 ```
 
 This script is used for generating sounds for https://r9y9.github.io/wavenet_vocoder/.

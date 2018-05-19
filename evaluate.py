@@ -7,6 +7,7 @@ usage: evaluate.py [options] <checkpoint> <dst_dir>
 options:
     --data-root=<dir>           Directory contains preprocessed features.
     --hparams=<parmas>          Hyper parameters [default: ].
+    --preset=<json>             Path of preset parameters (json).
     --length=<T>                Steps to generate [default: 32000].
     --speaker-id=<N>            Use specific speaker of data in case for multi-speaker datasets.
     --initial-value=<n>         Initial value for the WaveNet decoder.
@@ -56,7 +57,12 @@ if __name__ == "__main__":
     file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
     num_utterances = int(args["--num-utterances"])
+    preset = args["--preset"]
 
+    # Load preset if specified
+    if preset is not None:
+        with open(preset) as f:
+            hparams.parse_json(f.read())
     # Override hyper parameters
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
