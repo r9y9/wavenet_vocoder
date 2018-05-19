@@ -7,7 +7,7 @@ usage: synthesis.py [options] <checkpoint> <dst_dir>
 options:
     --hparams=<parmas>                Hyper parameters [default: ].
     --preset=<json>                   Path of preset parameters (json).
-    --length=<T>                      Steps to generate [default: 32000].
+    --length=<T>                      Steps to generate.
     --initial-value=<n>               Initial value for the WaveNet decoder.
     --conditional=<p>                 Conditional features path.
     --symmetric-mels                  Symmetric mel.
@@ -58,8 +58,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
 
     Args:
         model (nn.Module) : WaveNet decoder
-        length (int): Time steps to generate. If conditinlal features are given,
-          then this is determined by the feature size.
+        length (int): Time steps to generate.
         c (numpy.ndarray): Conditional features, of shape T x C
         g (scaler): Speaker ID
         initial_value (int) : initial_value for the WaveNet decoder.
@@ -80,7 +79,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         model.make_generation_fast_()
 
     if c is None:
-        assert length is not None
+        length = 32000
     else:
         # (Tc, D)
         if c.ndim != 2:
