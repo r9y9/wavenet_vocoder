@@ -61,8 +61,16 @@ def test_conv_block():
     print(y.size(), h.size())
 
 
+def test_wavenet_legacy():
+    model = build_compact_model(legacy=True)
+    print(model)
+    x = torch.zeros(16, 256, 1000)
+    y = model(x)
+    print(y.size())
+
+
 def test_wavenet():
-    model = build_compact_model()
+    model = build_compact_model(legacy=False)
     print(model)
     x = torch.zeros(16, 256, 1000)
     y = model(x)

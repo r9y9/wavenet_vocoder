@@ -19,6 +19,7 @@ def wavenet(out_channels=256,
             freq_axis_kernel_size=3,
             scalar_input=False,
             use_speaker_embedding=True,
+            legacy=True,
             ):
     from wavenet_vocoder import WaveNet
 
@@ -35,6 +36,7 @@ def wavenet(out_channels=256,
                     freq_axis_kernel_size=freq_axis_kernel_size,
                     scalar_input=scalar_input,
                     use_speaker_embedding=use_speaker_embedding,
+                    legacy=legacy,
                     )
 
     return model

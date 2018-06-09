@@ -794,6 +794,7 @@ def build_model():
         upsample_scales=hparams.upsample_scales,
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
         scalar_input=is_scalar_input(hparams.input_type),
+        legacy=hparams.legacy,
     )
     return model
 
@@ -929,7 +930,7 @@ if __name__ == "__main__":
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
     print(hparams_debug_string())
-    
+
     fs = hparams.sample_rate
 
     os.makedirs(checkpoint_dir, exist_ok=True)

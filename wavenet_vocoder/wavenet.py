@@ -93,6 +93,8 @@ class WaveNet(nn.Module):
         use_speaker_embedding (Bool): Use speaker embedding or Not. Set to False
           if you want to disable embedding layer and use external features
           directly.
+        legacy (bool) Use legacy code or not. Default is True for backward
+          compatibility.
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -107,11 +109,13 @@ class WaveNet(nn.Module):
                  freq_axis_kernel_size=3,
                  scalar_input=False,
                  use_speaker_embedding=True,
+                 legacy=True,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
+        self.legacy = legacy
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
         if scalar_input:
@@ -221,8 +225,8 @@ class WaveNet(nn.Module):
                 skips = h
             else:
                 skips += h
-                skips *= math.sqrt(0.5)
-            # skips = h if skips is None else (skips + h) * math.sqrt(0.5)
+                if self.legacy:
+                    skips *= math.sqrt(0.5)
 
         x = skips
         for f in self.last_conv_layers:
@@ -332,7 +336,10 @@ class WaveNet(nn.Module):
             skips = None
             for f in self.conv_layers:
                 x, h = f.incremental_forward(x, ct, gt)
-                skips = h if skips is None else (skips + h) * math.sqrt(0.5)
+                if self.legacy:
+                    skips = h if skips is None else (skips + h) * math.sqrt(0.5)
+                else:
+                    skips = h if skips is None else (skips + h)
             x = skips
             for f in self.last_conv_layers:
                 try:
