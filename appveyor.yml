@@ -29,8 +29,6 @@ install:
   - conda info -a
   - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy scipy cython nose pytorch -c pytorch"
   - activate test-environment
-  # TODO: this should be removed
-  - pip install git+https://github.com/r9y9/bandmat@ci
 
 build_script:
   - pip install -e ".[test]"
