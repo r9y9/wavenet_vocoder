@@ -1,0 +1,4 @@
+FROM tensorflow/tensorflow:1.4.1-gpu-py3
+
+RUN apt-get update /
+ && apt-get install git -y

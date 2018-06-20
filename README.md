@@ -119,6 +119,7 @@ Supported `${dataset_name}`s for now are
 
 - `cmu_arctic` (multi-speaker)
 - `ljspeech` (single speaker)
+- `liepa` (multi-speaker)
 
 Assuming you use preset parameters known to work good for CMU ARCTIC dataset and have data in `~/data/cmu_arctic`, then you can preprocess data by:
 
