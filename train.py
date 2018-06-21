@@ -637,9 +637,12 @@ def __train_step(device, phase, epoch, global_step, global_test_step,
     # NOTE: softmax is handled in F.cross_entrypy_loss
     # y_hat: (B x C x T)
 
-    # multi gpu support
-    # you must make sure that batch size % num gpu == 0
-    y_hat = torch.nn.parallel.data_parallel(model, (x, c, g, False))
+    if use_cuda:
+        # multi gpu support
+        # you must make sure that batch size % num gpu == 0
+        y_hat = torch.nn.parallel.data_psarallel(model, (x, c, g, False))
+    else:
+        y_hat = model(x, c, g, False) 
 
     if is_mulaw_quantize(hparams.input_type):
         # wee need 4d inputs for spatial cross entropy loss
