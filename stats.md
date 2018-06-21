@@ -1,5 +1,3 @@
-**SPEKER** sentence utterance sizes in KB
-
 checked and ready for use | gender | LIEPA speeker ID | total speeker utternace size in kB | comment
 
 - [x] F **D245**: 59484
