@@ -384,7 +384,6 @@ def collate_fn(batch):
                     if len(x) > max_steps:
                         max_time_frames = max_steps // audio.get_hop_size()
                         s = np.random.randint(0, len(c) - max_time_frames)
-                        #print("Size of file=%6d, t_offset=%6d"  % (len(c), s,))
                         ts = s * audio.get_hop_size()
                         x = x[ts:ts + audio.get_hop_size() * max_time_frames]
                         c = c[s:s + max_time_frames, :]

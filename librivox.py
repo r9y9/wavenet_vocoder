@@ -11,15 +11,13 @@ import librosa
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
-from hparams import hparams
-
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     executor = ProcessPoolExecutor(max_workers=num_workers)
     futures = []
     index = 1
-    
-    #with open(os.path.join(in_dir, 'metadata.csv'), encoding='utf-8') as f:
+
+    # with open(os.path.join(in_dir, 'metadata.csv'), encoding='utf-8') as f:
     #    for line in f:
     #        parts = line.strip().split('|')
     #        wav_path = os.path.join(in_dir, 'wavs', '%s.wav' % parts[0])
@@ -27,40 +25,41 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     #        futures.append(executor.submit(
     #            partial(_process_utterance, out_dir, index, wav_path, text)))
     #        index += 1
-      
+
     valid_ext = '.ogg .wav .mp3'.split()
     for f in sorted(os.listdir(in_dir)):
-      valid = sum([ f.endswith(ext) for ext in valid_ext ])
-      if valid<1: continue
-      
-      audio_filepath = os.path.join(in_dir, f)
-      text = audio_filepath # Not very informative
-      futures.append(executor.submit(
-        partial(_process_utterance, out_dir, index, audio_filepath, text)))
-      index += 1
+        valid = sum([f.endswith(ext) for ext in valid_ext])
+        if valid < 1:
+            continue
+
+        audio_filepath = os.path.join(in_dir, f)
+        text = audio_filepath  # Not very informative
+        futures.append(executor.submit(
+            partial(_process_utterance, out_dir, index, audio_filepath, text)))
+        index += 1
     return [tup for future in tqdm(futures) for tup in future.result()]
 
 
-def _process_utterance(out_dir, index, audio_filepath, text):  
+def _process_utterance(out_dir, index, audio_filepath, text):
     # Load the audio to a numpy array:
     wav_whole = audio.load_wav(audio_filepath)
 
     if hparams.rescaling:
         wav_whole = wav_whole / np.abs(wav_whole).max() * hparams.rescaling_max
 
-    # This is a librivox source, so the audio files are going to be v. long 
+    # This is a librivox source, so the audio files are going to be v. long
     # compared to a typical 'utterance' : So split the wav into chunks
 
     tup_results = []
-    
-    n_samples = int( 8.0 * hparams.sample_rate ) # All 8 second utterances
+
+    n_samples = int(8.0 * hparams.sample_rate)  # All 8 second utterances
     n_chunks = wav_whole.shape[0] // n_samples
-    
+
     for chunk_idx in range(n_chunks):
-        chunk_start, chunk_end = chunk_idx*n_samples, (chunk_idx+1)*n_samples
-        if chunk_idx == n_chunks-1:  # This is the last chunk - allow it to extend to the end of the file
+        chunk_start, chunk_end = chunk_idx * n_samples, (chunk_idx + 1) * n_samples
+        if chunk_idx == n_chunks - 1:  # This is the last chunk - allow it to extend to the end of the file
             chunk_end = None
-        wav = wav_whole[ chunk_start : chunk_end ]
+        wav = wav_whole[chunk_start: chunk_end]
 
         # Mu-law quantize
         if is_mulaw_quantize(hparams.input_type):
@@ -114,8 +113,7 @@ def _process_utterance(out_dir, index, audio_filepath, text):
                 mel_spectrogram.astype(np.float32), allow_pickle=False)
 
         # Add results tuple describing this training example:
-        tup_results.append( (audio_filename, mel_filename, timesteps, text_idx) )
-        
+        tup_results.append((audio_filename, mel_filename, timesteps, text_idx))
+
     # Return all the audio results tuples (unpack in caller)
     return tup_results
-    
