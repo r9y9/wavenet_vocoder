@@ -10,7 +10,7 @@ from hparams import hparams
 from os.path import exists
 import librosa
 
-from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raws
+from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
