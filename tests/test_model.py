@@ -176,7 +176,7 @@ def test_local_conditioning_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 
@@ -216,7 +216,7 @@ def test_local_conditioning_upsample_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 
@@ -251,7 +251,7 @@ def test_global_conditioning_with_embedding_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 
@@ -286,7 +286,7 @@ def test_global_conditioning_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 
@@ -324,7 +324,7 @@ def test_global_and_local_conditioning_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 
@@ -364,7 +364,7 @@ def test_incremental_forward_correctness():
     try:
         assert np.allclose(y_offline.cpu().data.numpy(),
                            y_online.cpu().data.numpy(), atol=1e-4)
-    except:
+    except Exception:
         from warnings import warn
         warn("oops! must be a bug!")
 

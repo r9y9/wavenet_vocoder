@@ -12,8 +12,6 @@ import librosa
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
-from hparams import hparams
-
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     executor = ProcessPoolExecutor(max_workers=num_workers)

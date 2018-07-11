@@ -185,7 +185,7 @@ class ResidualConv1dGLU(nn.Module):
         return x, s
 
     def clear_buffer(self):
-        for conv in [self.conv, self.conv1x1_out, self.conv1x1_skip,
-                     self.conv1x1c, self.conv1x1g]:
-            if conv is not None:
-                self.conv.clear_buffer()
+        for c in [self.conv, self.conv1x1_out, self.conv1x1_skip,
+                  self.conv1x1c, self.conv1x1g]:
+            if c is not None:
+                c.clear_buffer()
