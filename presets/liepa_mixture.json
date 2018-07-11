@@ -26,6 +26,7 @@
   "dropout": 0.050000000000000044,
   "kernel_size": 3,
   "weight_normalization": true,
+  "legacy": false,
   "cin_channels": 80,
   "upsample_conditional_features": true,
   "upsample_scales": [
