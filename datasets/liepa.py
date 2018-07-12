@@ -3,11 +3,11 @@ from __future__ import with_statement, print_function, absolute_import
 from nnmnkwii.datasets import FileDataSource
 
 import numpy as np
-from os.path import join, splitext, isdir
+from os.path import join, splitext, isdir, split
 from os import listdir
 
 # List of available speakers.
-available_speakers = [
+recognition_dataset_speakers = [
     'D587', 'D175', 'D114', 'D127', 'D172', 'D192', 'D565', 'D130', 'D78', 'D550',
     'D153', 'D148', 'D105', 'D144', 'D173', 'D540', 'D70', 'D11', 'D569', 'D89',
     'D61', 'D134', 'D139', 'D87', 'D67', 'D126', 'D186', 'D244', 'D170', 'D174',
@@ -40,9 +40,14 @@ available_speakers = [
     'D557', 'D49', 'D529', 'D554', 'D536', 'D112', 'D589', 'D25', 'D90', 'D188',
     'D549', 'D142', 'D30', 'D21', 'D42', 'D64', 'D131', 'D169']
 
+synthesis_dataset_speakers = [
+    'Aiste', 'Regina', 'Vladas', 'Edvardas'
+]
+
+"""
 available_speakers = [
     "D151", "D150", "D36", "D52", "D54", "D305", "D304", "D37", "D283", "D303",
-    "D307", "D51", "D245", "D302", "D309", "D56", "D248", "D79", "D301", "D284", 
+    "D307", "D51", "D245", "D302", "D309", "D56", "D248", "D79", "D301", "D284",
     "D288", "D272", "D289", "D290", "D282", "D280", "D269", "D268", "D277", "D308",
     "D291", "D292"]
 
@@ -52,7 +57,7 @@ available_speakers = [
 
 #available_speakers = [
 #    "D151", "D150", "D36", "D52", "D54", "D305", "D304"]
-
+"""
 
 def get_sentence_subdirectories(a_dir):
     return [name for name in listdir(a_dir)
@@ -82,10 +87,10 @@ class WavFileDataSource(FileDataSource):
 
     def __init__(self, data_root, speakers, labelmap=None, max_files=None):
         for speaker in speakers:
-            if speaker not in available_speakers:
+            if speaker not in recognition_dataset_speakers and speaker not in synthesis_dataset_speakers:
                 raise ValueError(
-                    "Unknown speaker '{}'. It should be one of {}".format(
-                        speaker, available_speakers))
+                    "Unknown speaker '{}'. It should be one of {},.. or {}".format(
+                        speaker, recognition_dataset_speakers[:5], synthesis_dataset_speakers))
 
         self.data_root = data_root
         self.speakers = speakers
@@ -116,15 +121,27 @@ class WavFileDataSource(FileDataSource):
         for (i, d) in enumerate(speaker_dirs):
             if not isdir(d):
                 raise RuntimeError("{} doesn't exist.".format(d))
-            for sd in get_sentence_subdirectories(d):
-                files = [join(join(speaker_dirs[i], sd), f) for f in listdir(join(d, sd))]
+            
+            _, voice = split(d)
+            if d in recognition_dataset_speakers:
+                for sd in get_sentence_subdirectories(d):
+                    files = [join(join(speaker_dirs[i], sd), f) for f in listdir(join(d, sd))]
+                    files = list(filter(lambda x: splitext(x)[1] == ".wav", files))
+                    files = sorted(files)
+                    files = files[:max_files_per_speaker]
+                    for f in files:
+                        paths.append(f)
+                        labels.append(self.labelmap[self.speakers[i]])
+                        
+            elif voice in synthesis_dataset_speakers:
+                files = [join(join(speaker_dirs[i], 'data'), f) for f in listdir(join(d, 'data'))]
                 files = list(filter(lambda x: splitext(x)[1] == ".wav", files))
                 files = sorted(files)
                 files = files[:max_files_per_speaker]
                 for f in files:
                     paths.append(f)
                     labels.append(self.labelmap[self.speakers[i]])
+                
 
         self.labels = np.array(labels, dtype=np.int32)
         return paths
-

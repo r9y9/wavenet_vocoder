@@ -12,8 +12,6 @@ from datasets import liepa
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
-from hparams import hparams
-
 def _preprocess_utterance(out_dir, index, speaker_id, wav_path, text):
     sr = hparams.sample_rate
 
@@ -82,7 +80,9 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     executor = ProcessPoolExecutor(max_workers=num_workers)
     futures = []
 
-    speakers = liepa.available_speakers
+    #speakers = liepa.recognition_dataset_speakers
+    #speakers = liepa.synthesis_dataset_speakers
+    speakers = ['Regina']
 
     wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
     wav_paths = wd.collect_files()
