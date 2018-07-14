@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 import os
 import audio
+
 from nnmnkwii import preprocessing as P
 from hparams import hparams
 from os.path import exists
@@ -11,6 +12,35 @@ import librosa
 from datasets import liepa
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
+
+
+def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
+    executor = ProcessPoolExecutor(max_workers=num_workers)
+    futures = []
+
+    #speakers = liepa.recognition_dataset_speakers
+    #speakers = liepa.synthesis_dataset_speakers
+    speakers = ['Regina']
+
+    wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
+    wav_paths = wd.collect_files()
+    speaker_ids = wd.labels
+
+    for index, (speaker_id, wav_path) in enumerate(
+            zip(speaker_ids, wav_paths)):
+
+        txt_path = wav_path.replace('.wav','.txt')
+        if not exists(txt_path):
+            continue
+
+        text = None
+        with open(txt_path, 'rb') as f:
+            text = f.read().decode("utf-8")
+
+        futures.append(executor.submit(
+            partial(_preprocess_utterance, out_dir, index + 1, speaker_id, wav_path, text)))
+    return [future.result() for future in tqdm(futures)]
+
 
 def _preprocess_utterance(out_dir, index, speaker_id, wav_path, text):
     sr = hparams.sample_rate
@@ -75,30 +105,3 @@ def _preprocess_utterance(out_dir, index, speaker_id, wav_path, text):
 
     # Return a tuple describing this training example:
     return (audio_filename, mel_filename, timesteps, text, speaker_id)
-
-def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
-    executor = ProcessPoolExecutor(max_workers=num_workers)
-    futures = []
-
-    #speakers = liepa.recognition_dataset_speakers
-    #speakers = liepa.synthesis_dataset_speakers
-    speakers = ['Regina']
-
-    wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
-    wav_paths = wd.collect_files()
-    speaker_ids = wd.labels
-
-    for index, (speaker_id, wav_path) in enumerate(
-            zip(speaker_ids, wav_paths)):
-
-        txt_path = wav_path.replace('.wav','.txt')
-        if not exists(txt_path):
-            continue
-
-        text = None
-        with open(txt_path, 'rb') as f:
-            text = f.read().decode("utf-8")
-
-        futures.append(executor.submit(
-            partial(_preprocess_utterance, out_dir, index + 1, speaker_id, wav_path, text)))
-    return [future.result() for future in tqdm(futures)]
