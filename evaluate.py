@@ -81,7 +81,10 @@ if __name__ == "__main__":
 
     # Load checkpoint
     print("Load checkpoint from {}".format(checkpoint_path))
-    checkpoint = torch.load(checkpoint_path)
+    if use_cuda:
+        checkpoint = torch.load(checkpoint_path)
+    else:
+        checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
     model.load_state_dict(checkpoint["state_dict"])
     checkpoint_name = splitext(basename(checkpoint_path))[0]
 
