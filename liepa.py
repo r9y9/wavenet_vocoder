@@ -20,7 +20,7 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 
     #speakers = liepa.recognition_dataset_speakers
     #speakers = liepa.synthesis_dataset_speakers
-    speakers = ['Regina']
+    speakers = ['Regina', 'Aiste']
 
     wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
     wav_paths = wd.collect_files()
@@ -109,6 +109,6 @@ def _preprocess_utterance(out_dir, index, wav_path, text, speaker_id=None):
 
     # Return a tuple describing this training example:
     result = [audio_filename, mel_filename, timesteps, text]
-    if speaker_id:
-        result += speaker_id
+    if speaker_id is not None:
+        result.append(speaker_id)
     return result
