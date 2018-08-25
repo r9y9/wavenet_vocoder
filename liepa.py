@@ -38,7 +38,7 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
             text = f.read().decode("utf-8")
 
         if len(speakers) > 1:
-            arg = partial(_preprocess_utterance, out_dir, index + 1, speaker_id, wav_path, text)
+            arg = partial(_preprocess_utterance, out_dir, index + 1, wav_path, text, speaker_id)
         else:
             arg = partial(_preprocess_utterance, out_dir, index + 1, wav_path, text)
 
@@ -46,7 +46,7 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     return [future.result() for future in tqdm(futures)]
 
 
-def _preprocess_utterance(out_dir, index, speaker_id, wav_path, text):
+def _preprocess_utterance(out_dir, index, wav_path, text, speaker_id=None):
     sr = hparams.sample_rate
 
     # Load the audio to a numpy array. Resampled if needed
@@ -108,4 +108,7 @@ def _preprocess_utterance(out_dir, index, speaker_id, wav_path, text):
             mel_spectrogram.astype(np.float32), allow_pickle=False)
 
     # Return a tuple describing this training example:
-    return (audio_filename, mel_filename, timesteps, text, speaker_id)
+    result = [audio_filename, mel_filename, timesteps, text]
+    if speaker_id:
+        result += speaker_id
+    return result
