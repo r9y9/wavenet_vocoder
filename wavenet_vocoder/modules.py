@@ -173,7 +173,7 @@ class ResidualConv1dGLU(nn.Module):
             ga, gb = g.split(g.size(splitdim) // 2, dim=splitdim)
             a, b = a + ga, b + gb
 
-        x = F.tanh(a) * F.sigmoid(b)
+        x = torch.tanh(a) * torch.sigmoid(b)
 
         # For skip connection
         s = _conv1x1_forward(self.conv1x1_skip, x, is_incremental)
