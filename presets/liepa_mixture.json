@@ -36,8 +36,8 @@
     4
   ],
   "freq_axis_kernel_size": 3,
-  "gin_channels": 16,
-  "n_speakers": 32,
+  "gin_channels": -1,
+  "n_speakers": 7,
   "pin_memory": true,
   "num_workers": 2,
   "test_size": 0.0441,
