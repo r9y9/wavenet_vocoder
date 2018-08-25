@@ -37,8 +37,12 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
         with open(txt_path, 'rb') as f:
             text = f.read().decode("utf-8")
 
-        futures.append(executor.submit(
-            partial(_preprocess_utterance, out_dir, index + 1, speaker_id, wav_path, text)))
+        if len(speakers) > 1:
+            arg = partial(_preprocess_utterance, out_dir, index + 1, speaker_id, wav_path, text)
+        else:
+            arg = partial(_preprocess_utterance, out_dir, index + 1, wav_path, text)
+
+        futures.append(executor.submit(arg))
     return [future.result() for future in tqdm(futures)]
 
 
