@@ -20,7 +20,7 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 
     #speakers = liepa.recognition_dataset_speakers
     #speakers = liepa.synthesis_dataset_speakers
-    speakers = ['Regina', 'Aiste']
+    speakers = ['Regina', 'Aiste', 'Edvardas', 'Vladas']
 
     wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
     wav_paths = wd.collect_files()
