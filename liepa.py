@@ -23,19 +23,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
     speakers = ['Regina', 'Aiste', 'Edvardas', 'Vladas']
 
     wd = liepa.WavFileDataSource(in_dir, speakers=speakers)
-    wav_paths = wd.collect_files()
+    entries = wd.collect_files()
     speaker_ids = wd.labels
 
-    for index, (speaker_id, wav_path) in enumerate(
-            zip(speaker_ids, wav_paths)):
-
-        txt_path = wav_path.replace('.wav','.txt')
-        if not exists(txt_path):
-            continue
-
-        text = None
-        with open(txt_path, 'rb') as f:
-            text = f.read().decode("utf-8")
+    for index, (speaker_id, (wav_path, text)) in enumerate(
+            zip(speaker_ids, entries)):
 
         if len(speakers) > 1:
             arg = partial(_preprocess_utterance, out_dir, index + 1, wav_path, text, speaker_id)

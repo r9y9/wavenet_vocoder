@@ -102,6 +102,14 @@ class WavFileDataSource(FileDataSource):
         self.max_files = max_files
         self.labels = None
 
+    def load_lines(self, txt_path):
+        text = None
+        with open(txt_path, 'rb') as f:
+            content = f.read().decode("utf-8").splitlines()
+            lines = filter(None, (line.rstrip() for line in content))
+            
+        return list(lines)
+
     def collect_files(self):
         """Collect wav files for specific speakers.
 
@@ -111,7 +119,7 @@ class WavFileDataSource(FileDataSource):
         speaker_dirs = list(
             map(lambda x: join(self.data_root, x),
                 self.speakers))
-        paths = []
+        entries = []
         labels = []
 
         if self.max_files is None:
@@ -123,25 +131,20 @@ class WavFileDataSource(FileDataSource):
                 raise RuntimeError("{} doesn't exist.".format(d))
             
             _, voice = split(d)
-            if d in recognition_dataset_speakers:
-                for sd in get_sentence_subdirectories(d):
-                    files = [join(join(speaker_dirs[i], sd), f) for f in listdir(join(d, sd))]
-                    files = list(filter(lambda x: splitext(x)[1] == ".wav", files))
-                    files = sorted(files)
-                    files = files[:max_files_per_speaker]
-                    for f in files:
-                        paths.append(f)
-                        labels.append(self.labelmap[self.speakers[i]])
                         
-            elif voice in synthesis_dataset_speakers:
-                files = [join(join(speaker_dirs[i], 'data'), f) for f in listdir(join(d, 'data'))]
-                files = list(filter(lambda x: splitext(x)[1] == ".wav", files))
-                files = sorted(files)
-                files = files[:max_files_per_speaker]
-                for f in files:
-                    paths.append(f)
-                    labels.append(self.labelmap[self.speakers[i]])
+            transcipt_lines = self.load_lines(join(d, 'db_tr.txt'))
+            wav_subdir = join(d, 'data')
+            files = []
+            for j in range(len(transcipt_lines)):
+                wav_filename = join(wav_subdir, '%d.wav' % j)
+                files.append(wav_filename)
+
+            files = files[:max_files_per_speaker]
+            transcipt_lines = transcipt_lines[:max_files_per_speaker]
+            for f, t in zip(files, transcipt_lines):
+                entries.append((f, t))
+                labels.append(self.labelmap[self.speakers[i]])
                 
 
         self.labels = np.array(labels, dtype=np.int32)
-        return paths
+        return entries
