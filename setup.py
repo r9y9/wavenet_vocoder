@@ -56,7 +56,7 @@ setup(name='wavenet_vocoder',
       install_requires=[
           "numpy",
           "scipy",
-          "torch >= 0.4.0",
+          "torch >= 0.4.1",
       ],
       extras_require={
           "train": [
