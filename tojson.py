@@ -2,7 +2,7 @@
 """
 Dump hyper parameters to json file.
 
-usage: dump_hparams_to_json.py [options] <output_json_path>
+usage: tojson.py [options] <output_json_path>
 
 options:
     -h, --help               Show help message.
