@@ -39,8 +39,8 @@ def _process_utterance(out_dir, index, wav_path, text):
     lab_path = wav_path.replace("wav/", "lab/").replace(".wav", ".lab")
     if exists(lab_path):
         labels = hts.load(lab_path)
-        assert labels[0][-1] == "silB"
-        assert labels[-1][-1] == "silE"
+        assert "sil" in labels[0][-1]
+        assert "sil" in labels[-1][-1]
         b = int(labels[0][1] * 1e-7 * sr)
         e = int(labels[-1][0] * 1e-7 * sr)
         wav = wav[b:e]
