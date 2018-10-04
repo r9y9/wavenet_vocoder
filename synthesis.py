@@ -169,7 +169,7 @@ if __name__ == "__main__":
     if conditional_path is not None:
         c = np.load(conditional_path)
         if c.shape[1] != hparams.num_mels:
-            np.swapaxes(c, 0, 1)
+            c = np.swapaxes(c, 0, 1)
         if max_abs_value > 0:
             min_, max_ = 0, max_abs_value
             if symmetric_mels:
