@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/wavenet_vocoder.svg)](https://pypi.python.org/pypi/wavenet_vocoder)
 [![Build Status](https://travis-ci.org/r9y9/wavenet_vocoder.svg?branch=master)](https://travis-ci.org/r9y9/wavenet_vocoder)
 [![Build status](https://ci.appveyor.com/api/projects/status/lvt9jtimtg0koxwj?svg=true)](https://ci.appveyor.com/project/r9y9/wavenet-vocoder)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1472609.svg)](https://doi.org/10.5281/zenodo.1472609)
+[![DOI](https://zenodo.org/badge/115492234.svg)](https://zenodo.org/badge/latestdoi/115492234)
 
 The goal of the repository is to provide an implementation of the WaveNet vocoder, which can generate high quality raw speech samples conditioned on linguistic or acoustic features.
 
