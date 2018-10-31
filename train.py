@@ -420,7 +420,7 @@ def collate_fn(batch):
         padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
         x_batch = np.array([_pad_2d(np_utils.to_categorical(
             x[0], num_classes=hparams.quantize_channels),
-            max_input_len, padding_value) for x in batch], dtype=np.float32)
+            max_input_len, 0, padding_value) for x in batch], dtype=np.float32)
     else:
         x_batch = np.array([_pad_2d(x[0].reshape(-1, 1), max_input_len)
                             for x in batch], dtype=np.float32)
@@ -429,7 +429,8 @@ def collate_fn(batch):
     # (B, T)
     if is_mulaw_quantize(hparams.input_type):
         padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
-        y_batch = np.array([_pad(x[0], max_input_len, constant_values=padding_value) for x in batch], dtype=np.int)
+        y_batch = np.array([_pad(x[0], max_input_len, constant_values=padding_value)
+                            for x in batch], dtype=np.int)
     else:
         y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.float32)
     assert len(y_batch.shape) == 2
