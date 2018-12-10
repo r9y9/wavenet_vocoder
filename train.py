@@ -896,14 +896,15 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
             collate_fn=collate_fn, pin_memory=hparams.pin_memory)
 
         speaker_ids = {}
-        for idx, (x, c, g) in enumerate(dataset):
-            if g is not None:
-                try:
-                    speaker_ids[g] += 1
-                except KeyError:
-                    speaker_ids[g] = 1
-        if len(speaker_ids) > 0:
-            print("Speaker stats:", speaker_ids)
+        if X.file_data_source.multi_speaker:
+            for idx, (x, c, g) in enumerate(dataset):
+                if g is not None:
+                    try:
+                        speaker_ids[g] += 1
+                    except KeyError:
+                        speaker_ids[g] = 1
+            if len(speaker_ids) > 0:
+                print("Speaker stats:", speaker_ids)
 
         data_loaders[phase] = data_loader
 
