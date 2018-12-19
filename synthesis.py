@@ -83,21 +83,20 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         assert length is not None
     else:
         # (Tc, D)
-        if c.ndim != 2:
+        if c.ndim != 3:
             raise RuntimeError(
-                "Expected 2-dim shape (T, {}) for the conditional feature, but {} was actually given.".format(hparams.cin_channels, c.shape))
-            assert c.ndim == 2
-        Tc = c.shape[0]
+                "Expected 3-dim shape (B, T, {}) for the conditional feature, but {} was actually given.".format(hparams.cin_channels, c.shape))
+        Tc = c.shape[1]
         upsample_factor = audio.get_hop_size()
         # Overwrite length according to feature size
         length = Tc * upsample_factor
         # (Tc, D) -> (Tc', D)
         # Repeat features before feeding it to the network
         if not hparams.upsample_conditional_features:
-            c = np.repeat(c, upsample_factor, axis=0)
+            c = np.repeat(c, upsample_factor, axis=1)
 
         # B x C x T
-        c = torch.FloatTensor(c.T).unsqueeze(0)
+        c = torch.FloatTensor(c).transpose(1, 2)
 
     if initial_value is None:
         if is_mulaw_quantize(hparams.input_type):
@@ -111,10 +110,11 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
         initial_input = torch.from_numpy(initial_input).view(
             1, 1, hparams.quantize_channels)
+        initial_input = initial_input.view(1, 1, -1).expand(hparams.batch_size, 1, -1)
     else:
         initial_input = torch.zeros(1, 1, 1).fill_(initial_value)
 
-    g = None if g is None else torch.LongTensor([g])
+    g = None if g is None else torch.LongTensor([g]).view(hparams.batch_size, -1)
 
     # Transform data to GPU
     initial_input = initial_input.to(device)
@@ -127,8 +127,13 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
             log_scale_min=hparams.log_scale_min)
 
     if is_mulaw_quantize(hparams.input_type):
-        y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
+        y_out = np.zeros((hparams.batch_size, length))
+        for idx in range(hparams.batch_size):
+            cur_y = y_hat[idx]
+            cur_y = cur_y.max(0)[1].view(-1).long().cpu().data.numpy()
+            cur_y = P.inv_mulaw_quantize(cur_y, hparams.quantize_channels)
+            y_out[idx] = cur_y.reshape(-1)
+        y_hat = y_out
     elif is_mulaw(hparams.input_type):
         y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
     else:

@@ -263,7 +263,8 @@ class WaveNet(nn.Module):
               or scaler vector B x 1 x T
         """
         self.clear_buffer()
-        B = 1
+
+        B, _, _ = initial_input.size()
 
         # Note: shape should be **(B x T x C)**, not (B x C x T) opposed to
         # batch forward due to linealized convolution
@@ -354,10 +355,14 @@ class WaveNet(nn.Module):
             else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:
-                    sample = np.random.choice(
-                        np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
+                    positions = []
+                    for i in range(B):
+                        sample = np.random.choice(
+                            np.arange(self.out_channels), p=x[i].view(-1).data.cpu().numpy())
+                        positions.append(sample)
                     x.zero_()
-                    x[:, sample] = 1.0
+                    for batch_idx, position in enumerate(positions):
+                        x[batch_idx, position] = 1.0
             outputs += [x.data]
         # T x B x C
         outputs = torch.stack(outputs)
