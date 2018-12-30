@@ -62,7 +62,7 @@ setup(name='wavenet_vocoder',
           "train": [
               "docopt",
               "tqdm",
-              "tensorboardX",
+              "tensorboardX <= 1.2.0",
               "nnmnkwii >= 0.0.11",
               "keras",
               "scikit-learn",
