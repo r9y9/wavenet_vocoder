@@ -6,8 +6,6 @@ from scipy import signal
 from hparams import hparams
 from scipy.io import wavfile
 
-import lws
-
 
 def load_wav(path):
     return librosa.core.load(path, sr=hparams.sample_rate)[0]
@@ -81,6 +79,7 @@ def get_hop_size():
 
 
 def _lws_processor():
+    import lws
     return lws.lws(hparams.fft_size, get_hop_size(), mode="speech")
 
 
