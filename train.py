@@ -595,6 +595,21 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     path = join(audio_dir, "step{:09d}_target.wav".format(global_step))
     librosa.output.write_wav(path, y, sr=hparams.sample_rate)
 
+# workaround for https://github.com/pytorch/pytorch/issues/15716
+# the idea is to return outputs and replicas explicitly, so that making pytorch
+# not to release the nodes (this is a pytorch bug though)
+
+
+def data_parallel_workaround(model, input):
+    device_ids = list(range(torch.cuda.device_count()))
+    output_device = device_ids[0]
+    replicas = torch.nn.parallel.replicate(model, device_ids)
+    inputs = torch.nn.parallel.scatter(input, device_ids)
+    replicas = replicas[:len(inputs)]
+    outputs = torch.nn.parallel.parallel_apply(replicas, inputs)
+    y_hat = torch.nn.parallel.gather(outputs, output_device)
+    return y_hat, outputs, replicas
+
 
 def __train_step(device, phase, epoch, global_step, global_test_step,
                  model, optimizer, writer, criterion,
@@ -642,7 +657,7 @@ def __train_step(device, phase, epoch, global_step, global_test_step,
     if use_cuda:
         # multi gpu support
         # you must make sure that batch size % num gpu == 0
-        y_hat = torch.nn.parallel.data_parallel(model, (x, c, g, False))
+        y_hat, _outputs, _replicas = data_parallel_workaround(model, (x, c, g, False))
     else:
         y_hat = model(x, c, g, False)
 
