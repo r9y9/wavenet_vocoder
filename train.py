@@ -189,41 +189,42 @@ class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
     3. Permutate mini-batches
     """
 
-    def __init__(self, lengths, batch_size=16, batch_group_size=None,
-                 permutate=True):
+    def __init__(self, lengths, batch_size=8, batch_group_size=None):
         self.lengths, self.sorted_indices = torch.sort(torch.LongTensor(lengths))
 
         self.batch_size = batch_size
         if batch_group_size is None:
-            batch_group_size = min(batch_size * 32, len(self.lengths))
+            batch_group_size = min(batch_size * 8, len(self.lengths))
             if batch_group_size % batch_size != 0:
                 batch_group_size -= batch_group_size % batch_size
 
         self.batch_group_size = batch_group_size
         assert batch_group_size % batch_size == 0
-        self.permutate = permutate
 
     def __iter__(self):
-        indices = self.sorted_indices.clone()
+        indices = self.sorted_indices.numpy()
         batch_group_size = self.batch_group_size
         s, e = 0, 0
+        bins = []
         for i in range(len(indices) // batch_group_size):
             s = i * batch_group_size
             e = s + batch_group_size
-            random.shuffle(indices[s:e])
+            group = indices[s:e]
+            random.shuffle(group)
+            bins += [group]
 
         # Permutate batches
-        if self.permutate:
-            perm = np.arange(len(indices[:e]) // self.batch_size)
-            random.shuffle(perm)
-            indices[:e] = indices[:e].view(-1, self.batch_size)[perm, :].view(-1)
+        random.shuffle(bins)
+        binned_idx = np.stack(bins).reshape(-1)
 
         # Handle last elements
         s += batch_group_size
         if s < len(indices):
-            random.shuffle(indices[s:])
+            last_bin = indices[len(binned_idx):]
+            random.shuffle(last_bin)
+            binned_idx = np.concatenate([binned_idx, last_bin])
 
-        return iter(indices)
+        return iter(torch.tensor(binned_idx).long())
 
     def __len__(self):
         return len(self.sorted_indices)
@@ -900,6 +901,9 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
             sampler = PartialyRandomizedSimilarTimeLengthSampler(
                 lengths, batch_size=hparams.batch_size)
             shuffle = False
+            # make sure that there's sorting bugs for https://github.com/r9y9/wavenet_vocoder/issues/130
+            sampler_idx = np.asarray(sorted(list(map(lambda s: int(s), sampler))))
+            assert (sampler_idx == np.arange(len(sampler_idx), dtype=np.int)).all()
         else:
             sampler = None
             shuffle = test_shuffle
