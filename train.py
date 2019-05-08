@@ -901,7 +901,7 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
             sampler = PartialyRandomizedSimilarTimeLengthSampler(
                 lengths, batch_size=hparams.batch_size)
             shuffle = False
-            # make sure that there's sorting bugs for https://github.com/r9y9/wavenet_vocoder/issues/130
+            # make sure that there's no sorting bugs for https://github.com/r9y9/wavenet_vocoder/issues/130
             sampler_idx = np.asarray(sorted(list(map(lambda s: int(s), sampler))))
             assert (sampler_idx == np.arange(len(sampler_idx), dtype=np.int)).all()
         else:
