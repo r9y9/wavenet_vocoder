@@ -14,6 +14,7 @@ exemptLabels:
   - bug
   - design
   - help wanted
+  - doc
 
 # Set to true to ignore issues in a project (defaults to false)
 exemptProjects: true
