@@ -87,7 +87,7 @@ def _test_data(sr=4000, N=3000, returns_power=False, mulaw=True):
     # For power conditioning wavenet
     if returns_power:
         # (1 x N')
-        p = librosa.feature.rmse(x, frame_length=256, hop_length=128)
+        p = librosa.feature.rms(x, frame_length=256, hop_length=128)
         upsample_factor = x.size // p.size
         # (1 x N)
         p = np.repeat(p, upsample_factor, axis=-1)
