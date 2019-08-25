@@ -1,14 +1,20 @@
 import librosa
 import librosa.filters
-import math
 import numpy as np
-from scipy import signal
 from hparams import hparams
 from scipy.io import wavfile
+from nnmnkwii import preprocessing as P
 
 
 def load_wav(path):
-    return librosa.core.load(path, sr=hparams.sample_rate)[0]
+    sr, x = wavfile.read(path)
+    signed_int16_max = 2**15
+    if x.dtype == np.int16:
+        x = x.astype(np.float32) / signed_int16_max
+    if sr != hparams.sample_rate:
+        x = librosa.resample(x, sr, hparams.sample_rate)
+    x = np.clip(x, -1.0, 1.0)
+    return x
 
 
 def save_wav(wav, path):
@@ -19,6 +25,14 @@ def save_wav(wav, path):
 def trim(quantized):
     start, end = start_and_end_indices(quantized, hparams.silence_threshold)
     return quantized[start:end]
+
+
+def preemphasis(x, coef=0.85):
+    return P.preemphasis(x, coef)
+
+
+def inv_preemphasis(x, coef=0.85):
+    return P.inv_preemphasis(x, coef)
 
 
 def adjust_time_resolution(quantized, mel):
@@ -45,7 +59,6 @@ def adjust_time_resolution(quantized, mel):
     start, end = start_and_end_indices(quantized, hparams.silence_threshold)
 
     return quantized[start:end], mel[start:end, :]
-adjast_time_resolution = adjust_time_resolution  # 'adjust' is correct spelling, this is for compatibility
 
 
 def start_and_end_indices(quantized, silence_threshold=2):
@@ -62,12 +75,15 @@ def start_and_end_indices(quantized, silence_threshold=2):
     return start, end
 
 
-def melspectrogram(y):
-    D = _lws_processor().stft(y).T
-    S = _amp_to_db(_linear_to_mel(np.abs(D))) - hparams.ref_level_db
-    if not hparams.allow_clipping_in_normalization:
-        assert S.max() <= 0 and S.min() - hparams.min_level_db >= 0
-    return _normalize(S)
+def logmelspectrogram(y, pad_mode="reflect"):
+    """Same log-melspectrogram computation as espnet
+    https://github.com/espnet/espnet
+    from espnet.transform.spectrogram import logmelspectrogram
+    """
+    D = _stft(y, pad_mode=pad_mode)
+    S = _linear_to_mel(np.abs(D))
+    S = np.log10(np.maximum(S, 1e-10))
+    return S
 
 
 def get_hop_size():
@@ -78,30 +94,23 @@ def get_hop_size():
     return hop_size
 
 
-def _lws_processor():
-    import lws
-    return lws.lws(hparams.fft_size, get_hop_size(), mode="speech")
+def get_win_length():
+    win_length = hparams.win_length
+    if win_length < 0:
+        assert hparams.win_length_ms > 0
+        win_length = int(hparams.win_length_ms / 1000 * hparams.sample_rate)
+    return win_length
 
 
-def lws_num_frames(length, fsize, fshift):
-    """Compute number of time frames of lws spectrogram
-    """
-    pad = (fsize - fshift)
-    if length % fshift == 0:
-        M = (length + pad * 2 - fsize) // fshift + 1
-    else:
-        M = (length + pad * 2 - fsize) // fshift + 2
-    return M
+def _stft(y, pad_mode="constant"):
+    # use constant padding (defaults to zeros) instead of reflection padding
+    return librosa.stft(y=y, n_fft=hparams.fft_size, hop_length=get_hop_size(),
+                        win_length=get_win_length(), window=hparams.window,
+                        pad_mode=pad_mode)
 
 
-def lws_pad_lr(x, fsize, fshift):
-    """Compute left and right padding lws internally uses
-    """
-    M = lws_num_frames(len(x), fsize, fshift)
-    pad = (fsize - fshift)
-    T = len(x) + 2 * pad
-    r = (M - 1) * fshift + fsize - T
-    return pad, pad + r
+def pad_lr(x, fsize, fshift):
+    return (0, fsize)
 
 # Conversions:
 
