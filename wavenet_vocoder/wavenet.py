@@ -12,6 +12,7 @@ from .modules import Embedding
 
 from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
+from wavenet_vocoder import upsample
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -78,8 +79,6 @@ class WaveNet(nn.Module):
           set, global conditioning is disabled.
         n_speakers (int): Number of speakers. Used only if global conditioning
           is enabled.
-        weight_normalization (bool): If True, DeepVoice3-style weight
-          normalization is applied.
         upsample_conditional_features (bool): Whether upsampling local
           conditioning features by transposed convolution layers or not.
         upsample_scales (list): List of upsample scale.
@@ -93,8 +92,6 @@ class WaveNet(nn.Module):
         use_speaker_embedding (Bool): Use speaker embedding or Not. Set to False
           if you want to disable embedding layer and use external features
           directly.
-        legacy (bool) Use legacy code or not. Default is True for backward
-          compatibility.
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -103,19 +100,17 @@ class WaveNet(nn.Module):
                  skip_out_channels=512,
                  kernel_size=3, dropout=1 - 0.95,
                  cin_channels=-1, gin_channels=-1, n_speakers=None,
-                 weight_normalization=True,
                  upsample_conditional_features=False,
-                 upsample_scales=None,
-                 freq_axis_kernel_size=3,
+                 upsample_net="ConvInUpsampleNetwork",
+                 upsample_params={"upsample_scales": [4, 4, 4, 4]},
                  scalar_input=False,
-                 use_speaker_embedding=True,
-                 legacy=True,
+                 use_speaker_embedding=False,
+                 cin_pad=0,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
-        self.legacy = legacy
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
         if scalar_input:
@@ -133,16 +128,13 @@ class WaveNet(nn.Module):
                 bias=True,  # magenda uses bias, but musyoku doesn't
                 dilation=dilation, dropout=dropout,
                 cin_channels=cin_channels,
-                gin_channels=gin_channels,
-                weight_normalization=weight_normalization)
+                gin_channels=gin_channels)
             self.conv_layers.append(conv)
         self.last_conv_layers = nn.ModuleList([
             nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, skip_out_channels,
-                      weight_normalization=weight_normalization),
+            Conv1d1x1(skip_out_channels, skip_out_channels),
             nn.ReLU(inplace=True),
-            Conv1d1x1(skip_out_channels, out_channels,
-                      weight_normalization=weight_normalization),
+            Conv1d1x1(skip_out_channels, out_channels),
         ])
 
         if gin_channels > 0 and use_speaker_embedding:
@@ -154,19 +146,9 @@ class WaveNet(nn.Module):
 
         # Upsample conv net
         if upsample_conditional_features:
-            self.upsample_conv = nn.ModuleList()
-            for s in upsample_scales:
-                freq_axis_padding = (freq_axis_kernel_size - 1) // 2
-                convt = ConvTranspose2d(1, 1, (freq_axis_kernel_size, s),
-                                        padding=(freq_axis_padding, 0),
-                                        dilation=1, stride=(1, s),
-                                        weight_normalization=weight_normalization)
-                self.upsample_conv.append(convt)
-                # assuming we use [0, 1] scaled features
-                # this should avoid non-negative upsampling output
-                self.upsample_conv.append(nn.ReLU(inplace=True))
+            self.upsample_net = getattr(upsample, upsample_net)(**upsample_params)
         else:
-            self.upsample_conv = None
+            self.upsample_net = None
 
         self.receptive_field = receptive_field_size(layers, stacks, kernel_size)
 
@@ -207,26 +189,17 @@ class WaveNet(nn.Module):
         # Expand global conditioning features to all time steps
         g_bct = _expand_global_features(B, T, g, bct=True)
 
-        if c is not None and self.upsample_conv is not None:
-            # B x 1 x C x T
-            c = c.unsqueeze(1)
-            for f in self.upsample_conv:
-                c = f(c)
-            # B x C x T
-            c = c.squeeze(1)
+        if c is not None and self.upsample_net is not None:
+            c = self.upsample_net(c)
             assert c.size(-1) == x.size(-1)
 
         # Feed data to network
         x = self.first_conv(x)
-        skips = None
+        skips = 0
         for f in self.conv_layers:
             x, h = f(x, c, g_bct)
-            if skips is None:
-                skips = h
-            else:
-                skips += h
-                if self.legacy:
-                    skips *= math.sqrt(0.5)
+            skips += h
+        skips *= math.sqrt(1.0 / len(self.conv_layers))
 
         x = skips
         for f in self.last_conv_layers:
@@ -293,16 +266,13 @@ class WaveNet(nn.Module):
         g_btc = _expand_global_features(B, T, g, bct=False)
 
         # Local conditioning
-        if c is not None and self.upsample_conv is not None:
-            # B x 1 x C x T
-            c = c.unsqueeze(1)
-            for f in self.upsample_conv:
-                c = f(c)
-            # B x C x T
-            c = c.squeeze(1)
-            assert c.size(-1) == T
-        if c is not None and c.size(-1) == T:
-            c = c.transpose(1, 2).contiguous()
+        if c is not None:
+            B = c.shape[0]
+            if self.upsample_net is not None:
+                c = self.upsample_net(c)
+                assert c.size(-1) == T
+            if c.size(-1) == T:
+                c = c.transpose(1, 2).contiguous()
 
         outputs = []
         if initial_input is None:
@@ -333,13 +303,11 @@ class WaveNet(nn.Module):
 
             x = current_input
             x = self.first_conv.incremental_forward(x)
-            skips = None
+            skips = 0
             for f in self.conv_layers:
                 x, h = f.incremental_forward(x, ct, gt)
-                if self.legacy:
-                    skips = h if skips is None else (skips + h) * math.sqrt(0.5)
-                else:
-                    skips = h if skips is None else (skips + h)
+                skips += h
+            skips *= math.sqrt(1.0 / len(self.conv_layers))
             x = skips
             for f in self.last_conv_layers:
                 try:
@@ -354,10 +322,8 @@ class WaveNet(nn.Module):
             else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:
-                    sample = np.random.choice(
-                        np.arange(self.out_channels), p=x.view(-1).data.cpu().numpy())
-                    x.zero_()
-                    x[:, sample] = 1.0
+                    dist = torch.distribution.OneHotCategorical(x)
+                    x = dist.sample()
             outputs += [x.data]
         # T x B x C
         outputs = torch.stack(outputs)

@@ -57,16 +57,16 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
     centered_y = y - means
     inv_stdv = torch.exp(-log_scales)
     plus_in = inv_stdv * (centered_y + 1. / (num_classes - 1))
-    cdf_plus = F.sigmoid(plus_in)
+    cdf_plus = torch.sigmoid(plus_in)
     min_in = inv_stdv * (centered_y - 1. / (num_classes - 1))
-    cdf_min = F.sigmoid(min_in)
+    cdf_min = torch.sigmoid(min_in)
 
     # log probability for edge case of 0 (before scaling)
-    # equivalent: torch.log(F.sigmoid(plus_in))
+    # equivalent: torch.log(torch.sigmoid(plus_in))
     log_cdf_plus = plus_in - F.softplus(plus_in)
 
     # log probability for edge case of 255 (before scaling)
-    # equivalent: (1 - F.sigmoid(min_in)).log()
+    # equivalent: (1 - torch.sigmoid(min_in)).log()
     log_one_minus_cdf_min = -F.softplus(min_in)
 
     # probability for all other cases
