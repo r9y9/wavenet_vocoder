@@ -43,12 +43,15 @@ hparams = HParams(
     win_length_ms=-1.0,
     window="hann",
 
-    # Mixture of logistic distributions:
+    # Parametric output distribution type for scalar input
+    # 1) Logistic or 2) Normal
+    output_distribution="Normal",
     log_scale_min=-9.0,
 
     # Model:
     # This should equal to `quantize_channels` if mu-law quantize enabled
     # otherwise num_mixture * 3 (pi, mean, log_scale)
+    # single mixture case: 2
     out_channels=10 * 3,
     layers=24,
     stacks=4,

@@ -12,6 +12,7 @@ from .modules import Embedding
 
 from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
+from .mixture import sample_from_mix_gaussian
 from wavenet_vocoder import upsample
 
 
@@ -105,12 +106,14 @@ class WaveNet(nn.Module):
                  upsample_params={"upsample_scales": [4, 4, 4, 4]},
                  scalar_input=False,
                  use_speaker_embedding=False,
+                 output_distribution="Logistic",
                  cin_pad=0,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
+        self.output_distribution = output_distribution
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
         if scalar_input:
@@ -317,8 +320,14 @@ class WaveNet(nn.Module):
 
             # Generate next input by sampling
             if self.scalar_input:
-                x = sample_from_discretized_mix_logistic(
-                    x.view(B, -1, 1), log_scale_min=log_scale_min)
+                if self.output_distribution == "Logistic":
+                    x = sample_from_discretized_mix_logistic(
+                        x.view(B, -1, 1), log_scale_min=log_scale_min)
+                elif self.output_distribution == "Normal":
+                    x = sample_from_mix_gaussian(
+                        x.view(B, -1, 1), log_scale_min=log_scale_min)
+                else:
+                    assert False
             else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:

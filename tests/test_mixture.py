@@ -8,9 +8,13 @@ from torch.nn import functional as F
 
 import librosa
 import pysptk
+from nose.plugins.attrib import attr
+
 
 from wavenet_vocoder.mixture import discretized_mix_logistic_loss
 from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
+from wavenet_vocoder.mixture import mix_gaussian_loss
+from wavenet_vocoder.mixture import sample_from_mix_gaussian
 
 
 def log_prob_from_logits(x):
@@ -21,6 +25,7 @@ def log_prob_from_logits(x):
     return x - m - torch.log(torch.sum(torch.exp(x - m), dim=axis, keepdim=True))
 
 
+@attr("mixture")
 def test_log_softmax():
     x = torch.rand(2, 16000, 30)
     y = log_prob_from_logits(x)
@@ -31,7 +36,8 @@ def test_log_softmax():
     assert np.allclose(y, y_hat)
 
 
-def test_mixture():
+@attr("mixture")
+def test_logistic_mixture():
     np.random.seed(1234)
 
     x, sr = librosa.load(pysptk.util.example_audio_file(), sr=None)
@@ -55,6 +61,32 @@ def test_mixture():
     print(y.shape)
 
 
+@attr("mixture")
+def test_gaussian_mixture():
+    np.random.seed(1234)
+
+    x, sr = librosa.load(pysptk.util.example_audio_file(), sr=None)
+    assert sr == 16000
+
+    T = len(x)
+    x = x.reshape(1, T, 1)
+    y = torch.from_numpy(x).float()
+    y_hat = torch.rand(1, 30, T).float()
+
+    print(y.shape, y_hat.shape)
+
+    loss = mix_gaussian_loss(y_hat, y)
+    print(loss)
+
+    loss = mix_gaussian_loss(y_hat, y, reduce=False)
+    print(loss.size(), y.size())
+    assert loss.size() == y.size()
+
+    y = sample_from_mix_gaussian(y_hat)
+    print(y.shape)
+
+
+@attr("mixture")
 def test_misc():
     # https://en.wikipedia.org/wiki/Logistic_distribution
     # what i have learned

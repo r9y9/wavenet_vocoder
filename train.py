@@ -53,6 +53,8 @@ from wavenet_vocoder import WaveNet
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw, is_scalar_input
 from wavenet_vocoder.mixture import discretized_mix_logistic_loss
 from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
+from wavenet_vocoder.mixture import mix_gaussian_loss
+from wavenet_vocoder.mixture import sample_from_mix_gaussian
 
 import audio
 from hparams import hparams, hparams_debug_string
@@ -375,6 +377,27 @@ class DiscretizedMixturelogisticLoss(nn.Module):
         return ((losses * mask_).sum()) / mask_.sum()
 
 
+class MixtureGaussianLoss(nn.Module):
+    def __init__(self):
+        super(MixtureGaussianLoss, self).__init__()
+
+    def forward(self, input, target, lengths=None, mask=None, max_len=None):
+        if lengths is None and mask is None:
+            raise RuntimeError("Should provide either lengths or mask")
+
+        # (B, T, 1)
+        if mask is None:
+            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+
+        # (B, T, 1)
+        mask_ = mask.expand_as(target)
+
+        losses = mix_gaussian_loss(
+            input, target, log_scale_min=hparams.log_scale_min, reduce=False)
+        assert losses.size() == target.size()
+        return ((losses * mask_).sum()) / mask_.sum()
+
+
 def ensure_divisible(length, divisible_by=256, lower=True):
     if length % divisible_by == 0:
         return length
@@ -554,7 +577,6 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
         initial_value = P.mulaw(0.0, hparams.quantize_channels)
     else:
         initial_value = 0.0
-    print("Intial value:", initial_value)
 
     # (C,)
     if is_mulaw_quantize(hparams.input_type):
@@ -615,8 +637,15 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
     else:
         # (B, T)
-        y_hat = sample_from_discretized_mix_logistic(
-            y_hat, log_scale_min=hparams.log_scale_min)
+        if hparams.output_distribution == "Logistic":
+            y_hat = sample_from_discretized_mix_logistic(
+                y_hat, log_scale_min=hparams.log_scale_min)
+        elif hparams.output_distribution == "Normal":
+            y_hat = sample_from_mix_gaussian(
+                y_hat, log_scale_min=hparams.log_scale_min)
+        else:
+            assert False
+
         # (T,)
         y_hat = y_hat[idx].view(-1).data.cpu().numpy()
         y = y[idx].view(-1).data.cpu().numpy()
@@ -745,7 +774,14 @@ def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=No
     if is_mulaw_quantize(hparams.input_type):
         criterion = MaskedCrossEntropyLoss()
     else:
-        criterion = DiscretizedMixturelogisticLoss()
+        if hparams.output_distribution == "Logistic":
+            criterion = DiscretizedMixturelogisticLoss()
+        elif hparams.output_distribution == "Normal":
+            criterion = MixtureGaussianLoss()
+        else:
+            raise RuntimeError(
+                "Not supported output distribution type: {}".format(
+                    hparams.output_distribution))
 
     if hparams.exponential_moving_average:
         ema = ExponentialMovingAverage(hparams.ema_decay)
@@ -870,6 +906,7 @@ def build_model():
         upsample_conditional_features=hparams.upsample_conditional_features,
         upsample_params=upsample_params,
         scalar_input=is_scalar_input(hparams.input_type),
+        output_distribution=hparams.output_distribution,
     )
     return model
 
