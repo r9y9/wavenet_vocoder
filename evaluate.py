@@ -105,7 +105,7 @@ if __name__ == "__main__":
     assert hparams.name == "wavenet_vocoder"
 
     hparams.max_time_sec = None
-    hparams.max_time_steps = 256 * 2
+    hparams.max_time_steps = None
 
     from train import build_model, get_data_loaders
     from synthesis import batch_wavegen
