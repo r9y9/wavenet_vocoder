@@ -322,7 +322,7 @@ class WaveNet(nn.Module):
             else:
                 x = F.softmax(x.view(B, -1), dim=1) if softmax else x.view(B, -1)
                 if quantize:
-                    dist = torch.distribution.OneHotCategorical(x)
+                    dist = torch.distributions.OneHotCategorical(x)
                     x = dist.sample()
             outputs += [x.data]
         # T x B x C
