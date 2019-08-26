@@ -143,7 +143,7 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
 
     if initial_value is None:
         if is_mulaw_quantize(hparams.input_type):
-            initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+            initial_value = P.mulaw_quantize(0, hparams.quantize_channels - 1)
         else:
             initial_value = 0.0
 

@@ -483,7 +483,7 @@ def collate_fn(batch):
     # (B, T, C)
     # pad for time-axis
     if is_mulaw_quantize(hparams.input_type):
-        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
+        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels - 1)
         x_batch = np.array([_pad_2d(to_categorical(
             x[0], num_classes=hparams.quantize_channels),
             max_input_len, 0, padding_value) for x in batch], dtype=np.float32)
@@ -494,7 +494,7 @@ def collate_fn(batch):
 
     # (B, T)
     if is_mulaw_quantize(hparams.input_type):
-        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
+        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels - 1)
         y_batch = np.array([_pad(x[0], max_input_len, constant_values=padding_value)
                             for x in batch], dtype=np.int)
     else:
@@ -573,7 +573,7 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
 
     # Dummy silence
     if is_mulaw_quantize(hparams.input_type):
-        initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+        initial_value = P.mulaw_quantize(0, hparams.quantize_channels - 1)
     elif is_mulaw(hparams.input_type):
         initial_value = P.mulaw(0.0, hparams.quantize_channels)
     else:
@@ -597,8 +597,8 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
 
     if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
-        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels - 1)
+        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels - 1)
     elif is_mulaw(hparams.input_type):
         y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
         y_target = P.inv_mulaw(y_target, hparams.quantize_channels)
@@ -634,8 +634,8 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         y_hat = y_hat[idx].data.cpu().long().numpy()
         y = y[idx].view(-1).data.cpu().long().numpy()
 
-        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
-        y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels - 1)
+        y = P.inv_mulaw_quantize(y, hparams.quantize_channels - 1)
     else:
         # (B, T)
         if hparams.output_distribution == "Logistic":
