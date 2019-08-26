@@ -3,7 +3,7 @@
 usage: train.py [options]
 
 options:
-    --data-root=<dir>            Directory contains preprocessed features.
+    --dump-root=<dir>            Directory contains preprocessed features.
     --checkpoint-dir=<dir>       Directory where to save model checkpoints [default: checkpoints].
     --hparams=<parmas>           Hyper parameters [default: ].
     --preset=<json>              Path of preset parameters (json).
@@ -155,9 +155,9 @@ def to_categorical(y, num_classes=None, dtype='float32'):
 
 # TODO: I know this is too ugly...
 class _NPYDataSource(FileDataSource):
-    def __init__(self, data_root, col, speaker_id=None, max_steps=8000,
+    def __init__(self, dump_root, col, speaker_id=None, max_steps=8000,
                  cin_pad=0, hop_size=256):
-        self.data_root = data_root
+        self.dump_root = dump_root
         self.col = col
         self.lengths = []
         self.speaker_id = speaker_id
@@ -168,7 +168,7 @@ class _NPYDataSource(FileDataSource):
         self.hop_size = hop_size
 
     def collect_files(self):
-        meta = join(self.data_root, "train.txt")
+        meta = join(self.dump_root, "train.txt")
         with open(meta, "rb") as f:
             lines = f.readlines()
         l = lines[0].decode("utf-8").split("|")
@@ -178,7 +178,7 @@ class _NPYDataSource(FileDataSource):
             map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
 
         paths_relative = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
-        paths = list(map(lambda f: join(self.data_root, f), paths_relative))
+        paths = list(map(lambda f: join(self.dump_root, f), paths_relative))
 
         # Exclude small files (assuming lenghts are in frame unit)
         # TODO: consider this for multi-speaker
@@ -214,13 +214,13 @@ class _NPYDataSource(FileDataSource):
 
 
 class RawAudioDataSource(_NPYDataSource):
-    def __init__(self, data_root, **kwargs):
-        super(RawAudioDataSource, self).__init__(data_root, 0, **kwargs)
+    def __init__(self, dump_root, **kwargs):
+        super(RawAudioDataSource, self).__init__(dump_root, 0, **kwargs)
 
 
 class MelSpecDataSource(_NPYDataSource):
-    def __init__(self, data_root, **kwargs):
-        super(MelSpecDataSource, self).__init__(data_root, 1, **kwargs)
+    def __init__(self, dump_root, **kwargs):
+        super(MelSpecDataSource, self).__init__(dump_root, 1, **kwargs)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -964,7 +964,7 @@ def restore_parts(path, model):
                 warn("{}: may contain invalid size of weight. skipping...".format(k))
 
 
-def get_data_loaders(data_root, speaker_id, test_shuffle=True):
+def get_data_loaders(dump_root, speaker_id, test_shuffle=True):
     data_loaders = {}
     local_conditioning = hparams.cin_channels > 0
 
@@ -976,12 +976,12 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
     for phase in ["train_no_dev", "dev"]:
         train = phase == "train_no_dev"
         X = FileSourceDataset(
-            RawAudioDataSource(join(data_root, phase), speaker_id=speaker_id,
+            RawAudioDataSource(join(dump_root, phase), speaker_id=speaker_id,
                                max_steps=max_steps, cin_pad=hparams.cin_pad,
                                hop_size=audio.get_hop_size()))
         if local_conditioning:
             Mel = FileSourceDataset(
-                MelSpecDataSource(join(data_root, phase), speaker_id=speaker_id,
+                MelSpecDataSource(join(dump_root, phase), speaker_id=speaker_id,
                                   max_steps=max_steps, cin_pad=hparams.cin_pad,
                                   hop_size=audio.get_hop_size()))
             assert len(X) == len(Mel)
@@ -1036,9 +1036,9 @@ if __name__ == "__main__":
     speaker_id = int(speaker_id) if speaker_id is not None else None
     preset = args["--preset"]
 
-    data_root = args["--data-root"]
-    if data_root is None:
-        data_root = join(dirname(__file__), "data", "ljspeech")
+    dump_root = args["--dump-root"]
+    if dump_root is None:
+        dump_root = join(dirname(__file__), "data", "ljspeech")
 
     log_event_path = args["--log-event-path"]
     reset_optimizer = args["--reset-optimizer"]
@@ -1061,7 +1061,7 @@ if __name__ == "__main__":
         json.dump(hparams.values(), f, indent=2)
 
     # Dataloader setup
-    data_loaders = get_data_loaders(data_root, speaker_id, test_shuffle=True)
+    data_loaders = get_data_loaders(dump_root, speaker_id, test_shuffle=True)
 
     maybe_set_epochs_based_on_max_steps(hparams, len(data_loaders["train_no_dev"]))
 
