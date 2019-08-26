@@ -23,6 +23,7 @@ from os.path import dirname, join, expanduser
 from tqdm import tqdm  # , trange
 from datetime import datetime
 import random
+import json
 
 import numpy as np
 
@@ -1054,6 +1055,10 @@ if __name__ == "__main__":
     fs = hparams.sample_rate
 
     os.makedirs(checkpoint_dir, exist_ok=True)
+
+    output_json_path = join(checkpoint_dir, "hparams.json")
+    with open(output_json_path, "w") as f:
+        json.dump(hparams.values(), f, indent=2)
 
     # Dataloader setup
     data_loaders = get_data_loaders(data_root, speaker_id, test_shuffle=True)
