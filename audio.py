@@ -126,7 +126,8 @@ def _linear_to_mel(spectrogram):
 
 
 def _build_mel_basis():
-    assert hparams.fmax <= hparams.sample_rate // 2
+    if hparams.fmax is not None:
+        assert hparams.fmax <= hparams.sample_rate // 2
     return librosa.filters.mel(hparams.sample_rate, hparams.fft_size,
                                fmin=hparams.fmin, fmax=hparams.fmax,
                                n_mels=hparams.num_mels)
