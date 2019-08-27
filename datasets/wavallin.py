@@ -34,6 +34,9 @@ def _process_utterance(out_dir, index, wav_path, text):
     # NOTE: the threshold was chosen for clean signals
     wav, _ = librosa.effects.trim(wav, top_db=60, frame_length=2048, hop_length=512)
 
+    if hparams.highpass_cutoff > 0.0:
+        wav = audio.low_cut_filter(wav, hparams.sample_rate, hparams.highpass_cutoff)
+
     # Mu-law quantize
     if is_mulaw_quantize(hparams.input_type):
         # Trim silences in mul-aw quantized domain

@@ -43,6 +43,9 @@ hparams = HParams(
     win_length_ms=-1.0,
     window="hann",
 
+    # DC removal
+    highpass_cutoff=70.0,
+
     # Parametric output distribution type for scalar input
     # 1) Logistic or 2) Normal
     output_distribution="Logistic",
