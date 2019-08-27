@@ -18,7 +18,7 @@ eval_size=10
 limit=1000000
 
 # waveform global gain normalization scale
-global_gain_scale=1.0
+global_gain_scale=0.55
 
 stage=0
 stop_stage=0
