@@ -219,6 +219,8 @@ if __name__ == "__main__":
                     ref = P.inv_mulaw(ref, hparams.quantize_channels - 1)
                 if hparams.postprocess is not None and hparams.postprocess not in ["", "none"]:
                     ref = getattr(audio, hparams.postprocess)(ref)
+                if hparams.global_gain_scale > 0:
+                    ref /= hparams.global_gain_scale
 
             # clip (just in case)
             gen = np.clip(gen, -1.0, 1.0)

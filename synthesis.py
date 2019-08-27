@@ -79,6 +79,10 @@ def batch_wavegen(model, c=None, g=None, fast=True, tqdm=tqdm):
         for i in range(B):
             y_hat[i] = getattr(audio, hparams.postprocess)(y_hat[i])
 
+    if hparams.global_gain_scale > 0:
+        for i in range(B):
+            y_hat[i] /= hparams.global_gain_scale
+
     return y_hat
 
 
@@ -177,7 +181,10 @@ def wavegen(model, length=None, c=None, g=None, initial_value=None,
         y_hat = y_hat.view(-1).cpu().data.numpy()
 
     if hparams.postprocess is not None and hparams.postprocess not in ["", "none"]:
-        y_hat[i] = getattr(audio, hparams.postprocess)(y_hat[i])
+        y_hat = getattr(audio, hparams.postprocess)(y_hat)
+
+    if hparams.global_gain_scale > 0:
+        y_hat /= hparams.global_gain_scale
 
     return y_hat
 
