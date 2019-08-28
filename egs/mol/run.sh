@@ -29,9 +29,10 @@ hparams=conf/mulaw256_wavenet_demo.json
 
 # Batch size at inference time.
 inference_batch_size=32
-
 # Leave empty to use latest checkpoint
 eval_checkpoint=
+# Max number of utts. for evaluation( for debugging)
+eval_max_num_utt=1000000
 
 # exp tag
 tag="" # tag for managing experiments.
@@ -116,6 +117,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     do
       dst_dir=$expdir/generated/$name/$s
       python $VOC_DIR/evaluate.py $dump_norm_dir/$s $eval_checkpoint $dst_dir \
-        --preset $hparams --hparams="batch_size=$inference_batch_size"
+        --preset $hparams --hparams="batch_size=$inference_batch_size" \
+        --num-utterances=$eval_max_num_utt
     done
 fi
