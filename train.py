@@ -19,11 +19,12 @@ from docopt import docopt
 import sys
 
 import os
-from os.path import dirname, join, expanduser
-from tqdm import tqdm  # , trange
+from os.path import dirname, join, expanduser, exists
+from tqdm import tqdm
 from datetime import datetime
 import random
 import json
+from glob import glob
 
 import numpy as np
 
@@ -155,7 +156,7 @@ def to_categorical(y, num_classes=None, dtype='float32'):
 
 # TODO: I know this is too ugly...
 class _NPYDataSource(FileDataSource):
-    def __init__(self, dump_root, col, speaker_id=None, max_steps=8000,
+    def __init__(self, dump_root, col, typ="", speaker_id=None, max_steps=8000,
                  cin_pad=0, hop_size=256):
         self.dump_root = dump_root
         self.col = col
@@ -166,9 +167,14 @@ class _NPYDataSource(FileDataSource):
         self.max_steps = max_steps
         self.cin_pad = cin_pad
         self.hop_size = hop_size
+        self.typ = typ
 
     def collect_files(self):
         meta = join(self.dump_root, "train.txt")
+        if not exists(meta):
+            paths = sorted(glob(join(self.dump_root, "*-{}.npy".format(self.typ))))
+            return paths
+
         with open(meta, "rb") as f:
             lines = f.readlines()
         l = lines[0].decode("utf-8").split("|")
@@ -215,12 +221,12 @@ class _NPYDataSource(FileDataSource):
 
 class RawAudioDataSource(_NPYDataSource):
     def __init__(self, dump_root, **kwargs):
-        super(RawAudioDataSource, self).__init__(dump_root, 0, **kwargs)
+        super(RawAudioDataSource, self).__init__(dump_root, 0, "wave", **kwargs)
 
 
 class MelSpecDataSource(_NPYDataSource):
     def __init__(self, dump_root, **kwargs):
-        super(MelSpecDataSource, self).__init__(dump_root, 1, **kwargs)
+        super(MelSpecDataSource, self).__init__(dump_root, 1, "feats", **kwargs)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
