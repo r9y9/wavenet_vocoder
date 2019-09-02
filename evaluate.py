@@ -161,8 +161,6 @@ if __name__ == "__main__":
             if hasattr(test_data_loader.dataset, "Mel"):
                 ref_feats.append(test_data_loader.dataset.Mel.collected_files[file_idx][0])
             else:
-                import ipdb
-                ipdb.set_trace()
                 ref_feats.append(test_data_loader.dataset.collected_files[file_idx][0])
             file_idx += 1
 
