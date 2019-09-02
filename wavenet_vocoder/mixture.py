@@ -115,7 +115,8 @@ def to_one_hot(tensor, n, fill_with=1.):
     return one_hot
 
 
-def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
+def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0,
+                                         clamp_log_scale=False):
     """
     Sample from discretized mixture of logistic distributions
 
@@ -142,8 +143,9 @@ def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
     one_hot = to_one_hot(argmax, nr_mix)
     # select logistic parameters
     means = torch.sum(y[:, :, nr_mix:2 * nr_mix] * one_hot, dim=-1)
-    log_scales = torch.clamp(torch.sum(
-        y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1), min=log_scale_min)
+    log_scales = torch.sum(y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1)
+    if clamp_log_scale:
+        log_scales = torch.clamp(log_scales, min=log_scale_min)
     # sample from logistic & clip to interval
     # we don't actually round to the nearest 8bit value when sampling
     u = means.data.new(means.size()).uniform_(1e-5, 1.0 - 1e-5)
