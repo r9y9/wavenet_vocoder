@@ -13,6 +13,7 @@ options:
     --file-name-suffix=<s>      File name suffix [default: ].
     --output-html               Output html for blog post.
     --num-utterances=N>         Generate N utterenaces per speaker [default: -1].
+    --verbose=<level>           Verbosity level [default: 0].
     -h, --help                  Show help message.
 """
 from docopt import docopt
@@ -77,9 +78,12 @@ def get_data_loader(data_dir, collate_fn):
 
     return data_loader
 
+
 if __name__ == "__main__":
     args = docopt(__doc__)
-    print("Command line args:\n", args)
+    verbose = int(args["--verbose"])
+    if verbose > 0:
+        print("Command line args:\n", args)
     data_root = args["<dump-root>"]
     checkpoint_path = args["<checkpoint>"]
     dst_dir = args["<dst_dir>"]
