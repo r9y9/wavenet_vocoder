@@ -58,9 +58,9 @@ hparams = HParams(
     out_channels=10 * 3,
     layers=24,
     stacks=4,
-    residual_channels=512,
-    gate_channels=512,  # split into 2 gropus internally for gated activation
-    skip_out_channels=256,
+    residual_channels=128,
+    gate_channels=256,  # split into 2 gropus internally for gated activation
+    skip_out_channels=128,
     dropout=0.0,
     kernel_size=3,
 
