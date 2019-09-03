@@ -19,7 +19,7 @@ from docopt import docopt
 
 import sys
 import os
-from os.path import dirname, join, basename, splitext
+from os.path import dirname, join, basename, splitext, exists
 import torch
 import numpy as np
 from nnmnkwii import preprocessing as P
@@ -100,6 +100,13 @@ if __name__ == "__main__":
     if preset is not None:
         with open(preset) as f:
             hparams.parse_json(f.read())
+    else:
+        hparams_json = join(dirname(checkpoint_path), "hparams.json")
+        if exists(hparams_json):
+            print("Loading hparams from {}".format(hparams_json))
+            with open(hparams_json) as f:
+                hparams.parse_json(f.read())
+
     # Override hyper parameters
     hparams.parse(args["--hparams"])
     assert hparams.name == "wavenet_vocoder"
