@@ -215,7 +215,7 @@ class WaveNet(nn.Module):
     def incremental_forward(self, initial_input=None, c=None, g=None,
                             T=100, test_inputs=None,
                             tqdm=lambda x: x, softmax=True, quantize=True,
-                            log_scale_min=-7.0):
+                            log_scale_min=-50.0):
         """Incremental forward step
 
         Due to linearized convolutions, inputs of shape (B x C x T) are reshaped
