@@ -49,7 +49,7 @@ hparams = HParams(
     # Parametric output distribution type for scalar input
     # 1) Logistic or 2) Normal
     output_distribution="Logistic",
-    log_scale_min=-9.0,
+    log_scale_min=-16.0,
 
     # Model:
     # This should equal to `quantize_channels` if mu-law quantize enabled
