@@ -42,10 +42,12 @@ device = torch.device("cuda" if use_cuda else "cpu")
 
 def dummy_collate(batch):
     N = len(batch)
+    input_lengths = [(len(x) - hparams.cin_pad * 2) * audio.get_hop_size() for x in batch]
+    input_lengths = torch.LongTensor(input_lengths)
     max_len = max([len(x) for x in batch])
     c_batch = np.array([_pad_2d(x, max_len) for x in batch], dtype=np.float32)
     c_batch = torch.FloatTensor(c_batch).transpose(1, 2).contiguous()
-    return [None] * N, [None] * N, c_batch, None, [None] * N
+    return [None]*N, [None]*N, c_batch, None, input_lengths
 
 
 def get_data_loader(data_dir, collate_fn):
