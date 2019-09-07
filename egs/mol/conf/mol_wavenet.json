@@ -18,7 +18,7 @@
   "window": "hann",
   "highpass_cutoff": 70.0,
   "output_distribution": "Logistic",
-  "log_scale_min": -9.0,
+  "log_scale_min": -16.0,
   "out_channels": 30,
   "layers": 24,
   "stacks": 4,
