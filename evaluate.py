@@ -25,7 +25,6 @@ import torch
 import numpy as np
 from nnmnkwii import preprocessing as P
 from tqdm import tqdm
-import librosa
 from scipy.io import wavfile
 from torch.utils import data as data_utils
 from torch.nn import functional as F
