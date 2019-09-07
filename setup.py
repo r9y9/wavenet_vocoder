@@ -64,7 +64,6 @@ setup(name='wavenet_vocoder',
               "tqdm",
               "tensorboardX",
               "nnmnkwii >= 0.0.11",
-              "keras",
               "scikit-learn",
           ],
           "test": [
