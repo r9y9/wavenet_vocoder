@@ -97,6 +97,8 @@ The repository provides Kaldi-style recipes to make experiments reproducible and
 
 All the recipe has `run.sh`, which specifies all the steps to perform WaveNet training/inference including data preprocessing. Please see run.sh in [egs](egs) directory for details.
 
+**NOTICE**: Global conditioning for multi-speaker WaveNet is not supported in the above recipes (it shouldn't be difficult to implement though). Please check v0.1.12 for the feature, or if you *really* need the feature, please raise an issue.
+
 #### Apply recipe to your own dataset
 
 The recipes are designed to be generic so that one can use them for any dataset. To apply recipes to your own dataset, you'd need to put *all* the wav files in a single flat directory. i.e.,
