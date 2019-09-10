@@ -3,7 +3,7 @@
 usage: train.py [options]
 
 options:
-    --data-root=<dir>            Directory contains preprocessed features.
+    --dump-root=<dir>            Directory contains preprocessed features.
     --checkpoint-dir=<dir>       Directory where to save model checkpoints [default: checkpoints].
     --hparams=<parmas>           Hyper parameters [default: ].
     --preset=<json>              Path of preset parameters (json).
@@ -19,10 +19,12 @@ from docopt import docopt
 import sys
 
 import os
-from os.path import dirname, join, expanduser
-from tqdm import tqdm  # , trange
+from os.path import dirname, join, expanduser, exists
+from tqdm import tqdm
 from datetime import datetime
 import random
+import json
+from glob import glob
 
 import numpy as np
 
@@ -30,7 +32,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from wavenet_vocoder import builder
 import lrschedule
 
 import torch
@@ -46,15 +47,16 @@ from nnmnkwii.datasets import FileSourceDataset, FileDataSource
 
 import librosa.display
 
-from sklearn.model_selection import train_test_split
-from keras.utils import np_utils
 from tensorboardX import SummaryWriter
 from matplotlib import cm
 from warnings import warn
 
+from wavenet_vocoder import WaveNet
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw, is_scalar_input
 from wavenet_vocoder.mixture import discretized_mix_logistic_loss
 from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
+from wavenet_vocoder.mixture import mix_gaussian_loss
+from wavenet_vocoder.mixture import sample_from_mix_gaussian
 
 import audio
 from hparams import hparams, hparams_debug_string
@@ -64,7 +66,7 @@ global_test_step = 0
 global_epoch = 0
 use_cuda = torch.cuda.is_available()
 if use_cuda:
-    cudnn.benchmark = False
+    cudnn.benchmark = True
 
 
 def sanity_check(model, c, g):
@@ -85,6 +87,15 @@ def sanity_check(model, c, g):
             raise RuntimeError("WaveNet expects no conditional features, but given")
 
 
+def maybe_set_epochs_based_on_max_steps(hp, steps_per_epoch):
+    nepochs = hp.nepochs
+    max_train_steps = hp.max_train_steps
+    if max_train_steps is not None:
+        epochs = int(np.ceil(max_train_steps / steps_per_epoch))
+        hp.nepochs = epochs
+        print("info; Number of epochs is set based on max_train_steps: {}".format(epochs))
+
+
 def _pad(seq, max_len, constant_values=0):
     return np.pad(seq, (0, max_len - len(seq)),
                   mode='constant', constant_values=constant_values)
@@ -95,33 +106,75 @@ def _pad_2d(x, max_len, b_pad=0, constant_values=0):
                mode="constant", constant_values=constant_values)
     return x
 
+# from: https://github.com/keras-team/keras/blob/master/keras/utils/np_utils.py
+# to avoid keras dependency
 
+
+def to_categorical(y, num_classes=None, dtype='float32'):
+    """Converts a class vector (integers) to binary class matrix.
+    E.g. for use with categorical_crossentropy.
+    # Arguments
+        y: class vector to be converted into a matrix
+            (integers from 0 to num_classes).
+        num_classes: total number of classes.
+        dtype: The data type expected by the input, as a string
+            (`float32`, `float64`, `int32`...)
+    # Returns
+        A binary matrix representation of the input. The classes axis
+        is placed last.
+    # Example
+    ```python
+    # Consider an array of 5 labels out of a set of 3 classes {0, 1, 2}:
+    > labels
+    array([0, 2, 1, 2, 0])
+    # `to_categorical` converts this into a matrix with as many
+    # columns as there are classes. The number of rows
+    # stays the same.
+    > to_categorical(labels)
+    array([[ 1.,  0.,  0.],
+           [ 0.,  0.,  1.],
+           [ 0.,  1.,  0.],
+           [ 0.,  0.,  1.],
+           [ 1.,  0.,  0.]], dtype=float32)
+    ```
+    """
+
+    y = np.array(y, dtype='int')
+    input_shape = y.shape
+    if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
+        input_shape = tuple(input_shape[:-1])
+    y = y.ravel()
+    if not num_classes:
+        num_classes = np.max(y) + 1
+    n = y.shape[0]
+    categorical = np.zeros((n, num_classes), dtype=dtype)
+    categorical[np.arange(n), y] = 1
+    output_shape = input_shape + (num_classes,)
+    categorical = np.reshape(categorical, output_shape)
+    return categorical
+
+
+# TODO: I know this is too ugly...
 class _NPYDataSource(FileDataSource):
-    def __init__(self, data_root, col, speaker_id=None,
-                 train=True, test_size=0.05, test_num_samples=None, random_state=1234):
-        self.data_root = data_root
+    def __init__(self, dump_root, col, typ="", speaker_id=None, max_steps=8000,
+                 cin_pad=0, hop_size=256):
+        self.dump_root = dump_root
         self.col = col
         self.lengths = []
         self.speaker_id = speaker_id
         self.multi_speaker = False
         self.speaker_ids = None
-        self.train = train
-        self.test_size = test_size
-        self.test_num_samples = test_num_samples
-        self.random_state = random_state
-
-    def interest_indices(self, paths):
-        indices = np.arange(len(paths))
-        if self.test_size is None:
-            test_size = self.test_num_samples / len(paths)
-        else:
-            test_size = self.test_size
-        train_indices, test_indices = train_test_split(
-            indices, test_size=test_size, random_state=self.random_state)
-        return train_indices if self.train else test_indices
+        self.max_steps = max_steps
+        self.cin_pad = cin_pad
+        self.hop_size = hop_size
+        self.typ = typ
 
     def collect_files(self):
-        meta = join(self.data_root, "train.txt")
+        meta = join(self.dump_root, "train.txt")
+        if not exists(meta):
+            paths = sorted(glob(join(self.dump_root, "*-{}.npy".format(self.typ))))
+            return paths
+
         with open(meta, "rb") as f:
             lines = f.readlines()
         l = lines[0].decode("utf-8").split("|")
@@ -131,7 +184,16 @@ class _NPYDataSource(FileDataSource):
             map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
 
         paths_relative = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
-        paths = list(map(lambda f: join(self.data_root, f), paths_relative))
+        paths = list(map(lambda f: join(self.dump_root, f), paths_relative))
+
+        # Exclude small files (assuming lenghts are in frame unit)
+        # TODO: consider this for multi-speaker
+        if self.max_steps is not None:
+            idx = np.array(self.lengths) * self.hop_size > self.max_steps + 2 * self.cin_pad * self.hop_size
+            if idx.sum() != len(self.lengths):
+                print("{} short samples are omitted for training.".format(len(self.lengths) - idx.sum()))
+            self.lengths = list(np.array(self.lengths)[idx])
+            paths = list(np.array(paths)[idx])
 
         if self.multi_speaker:
             speaker_ids = list(map(lambda l: int(l.decode("utf-8").split("|")[-1]), lines))
@@ -142,23 +204,9 @@ class _NPYDataSource(FileDataSource):
                 indices = np.array(speaker_ids) == self.speaker_id
                 paths = list(np.array(paths)[indices])
                 self.lengths = list(np.array(self.lengths)[indices])
-
-                # Filter by train/tset
-                indices = self.interest_indices(paths)
-                paths = list(np.array(paths)[indices])
-                self.lengths = list(np.array(self.lengths)[indices])
-
                 # aha, need to cast numpy.int64 to int
                 self.lengths = list(map(int, self.lengths))
                 self.multi_speaker = False
-
-                return paths
-
-        # Filter by train/test
-        indices = self.interest_indices(paths)
-        paths = list(np.array(paths)[indices])
-        lengths_np = list(np.array(self.lengths)[indices])
-        self.lengths = list(map(int, lengths_np))
 
         if self.multi_speaker:
             speaker_ids_np = list(np.array(self.speaker_ids)[indices])
@@ -172,13 +220,13 @@ class _NPYDataSource(FileDataSource):
 
 
 class RawAudioDataSource(_NPYDataSource):
-    def __init__(self, data_root, **kwargs):
-        super(RawAudioDataSource, self).__init__(data_root, 0, **kwargs)
+    def __init__(self, dump_root, **kwargs):
+        super(RawAudioDataSource, self).__init__(dump_root, 0, "wave", **kwargs)
 
 
 class MelSpecDataSource(_NPYDataSource):
-    def __init__(self, data_root, **kwargs):
-        super(MelSpecDataSource, self).__init__(data_root, 1, **kwargs)
+    def __init__(self, dump_root, **kwargs):
+        super(MelSpecDataSource, self).__init__(dump_root, 1, "feats", **kwargs)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -298,7 +346,7 @@ def clone_as_averaged_model(device, model, ema):
 class MaskedCrossEntropyLoss(nn.Module):
     def __init__(self):
         super(MaskedCrossEntropyLoss, self).__init__()
-        self.criterion = nn.CrossEntropyLoss(reduce=False)
+        self.criterion = nn.CrossEntropyLoss(reduction='none')
 
     def forward(self, input, target, lengths=None, mask=None, max_len=None):
         if lengths is None and mask is None:
@@ -336,6 +384,27 @@ class DiscretizedMixturelogisticLoss(nn.Module):
         return ((losses * mask_).sum()) / mask_.sum()
 
 
+class MixtureGaussianLoss(nn.Module):
+    def __init__(self):
+        super(MixtureGaussianLoss, self).__init__()
+
+    def forward(self, input, target, lengths=None, mask=None, max_len=None):
+        if lengths is None and mask is None:
+            raise RuntimeError("Should provide either lengths or mask")
+
+        # (B, T, 1)
+        if mask is None:
+            mask = sequence_mask(lengths, max_len).unsqueeze(-1)
+
+        # (B, T, 1)
+        mask_ = mask.expand_as(target)
+
+        losses = mix_gaussian_loss(
+            input, target, log_scale_min=hparams.log_scale_min, reduce=False)
+        assert losses.size() == target.size()
+        return ((losses * mask_).sum()) / mask_.sum()
+
+
 def ensure_divisible(length, divisible_by=256, lower=True):
     if length % divisible_by == 0:
         return length
@@ -345,8 +414,8 @@ def ensure_divisible(length, divisible_by=256, lower=True):
         return length + (divisible_by - length % divisible_by)
 
 
-def assert_ready_for_upsampling(x, c):
-    assert len(x) % len(c) == 0 and len(x) // len(c) == audio.get_hop_size()
+def assert_ready_for_upsampling(x, c, cin_pad):
+    assert len(x) == (len(c) - 2 * cin_pad) * audio.get_hop_size()
 
 
 def collate_fn(batch):
@@ -374,26 +443,28 @@ def collate_fn(batch):
         max_time_steps = None
 
     # Time resolution adjustment
+    cin_pad = hparams.cin_pad
     if local_conditioning:
         new_batch = []
         for idx in range(len(batch)):
             x, c, g = batch[idx]
             if hparams.upsample_conditional_features:
-                assert_ready_for_upsampling(x, c)
+                assert_ready_for_upsampling(x, c, cin_pad=0)
                 if max_time_steps is not None:
                     max_steps = ensure_divisible(max_time_steps, audio.get_hop_size(), True)
                     if len(x) > max_steps:
                         max_time_frames = max_steps // audio.get_hop_size()
-                        s = np.random.randint(0, len(c) - max_time_frames)
+                        s = np.random.randint(cin_pad, len(c) - max_time_frames - cin_pad)
                         ts = s * audio.get_hop_size()
                         x = x[ts:ts + audio.get_hop_size() * max_time_frames]
-                        c = c[s:s + max_time_frames, :]
-                        assert_ready_for_upsampling(x, c)
+                        c = c[s - cin_pad:s + max_time_frames + cin_pad, :]
+                        assert_ready_for_upsampling(x, c, cin_pad=cin_pad)
             else:
                 x, c = audio.adjust_time_resolution(x, c)
                 if max_time_steps is not None and len(x) > max_time_steps:
-                    s = np.random.randint(0, len(x) - max_time_steps)
-                    x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                    s = np.random.randint(cin_pad, len(x) - max_time_steps - cin_pad)
+                    x = x[s:s + max_time_steps]
+                    c = c[s - cin_pad:s + max_time_steps + cin_pad, :]
                 assert len(x) == len(c)
             new_batch.append((x, c, g))
         batch = new_batch
@@ -418,8 +489,8 @@ def collate_fn(batch):
     # (B, T, C)
     # pad for time-axis
     if is_mulaw_quantize(hparams.input_type):
-        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
-        x_batch = np.array([_pad_2d(np_utils.to_categorical(
+        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels - 1)
+        x_batch = np.array([_pad_2d(to_categorical(
             x[0], num_classes=hparams.quantize_channels),
             max_input_len, 0, padding_value) for x in batch], dtype=np.float32)
     else:
@@ -429,7 +500,7 @@ def collate_fn(batch):
 
     # (B, T)
     if is_mulaw_quantize(hparams.input_type):
-        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels)
+        padding_value = P.mulaw_quantize(0, mu=hparams.quantize_channels - 1)
         y_batch = np.array([_pad(x[0], max_input_len, constant_values=padding_value)
                             for x in batch], dtype=np.int)
     else:
@@ -496,7 +567,7 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
 
     if c is not None:
         if hparams.upsample_conditional_features:
-            c = c[idx, :, :length // audio.get_hop_size()].unsqueeze(0)
+            c = c[idx, :, :length // audio.get_hop_size() + hparams.cin_pad * 2].unsqueeze(0)
         else:
             c = c[idx, :, :length].unsqueeze(0)
         assert c.dim() == 3
@@ -508,16 +579,15 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
 
     # Dummy silence
     if is_mulaw_quantize(hparams.input_type):
-        initial_value = P.mulaw_quantize(0, hparams.quantize_channels)
+        initial_value = P.mulaw_quantize(0, hparams.quantize_channels - 1)
     elif is_mulaw(hparams.input_type):
         initial_value = P.mulaw(0.0, hparams.quantize_channels)
     else:
         initial_value = 0.0
-    print("Intial value:", initial_value)
 
     # (C,)
     if is_mulaw_quantize(hparams.input_type):
-        initial_input = np_utils.to_categorical(
+        initial_input = to_categorical(
             initial_value, num_classes=hparams.quantize_channels).astype(np.float32)
         initial_input = torch.from_numpy(initial_input).view(
             1, 1, hparams.quantize_channels)
@@ -533,8 +603,8 @@ def eval_model(global_step, writer, device, model, y, c, g, input_lengths, eval_
 
     if is_mulaw_quantize(hparams.input_type):
         y_hat = y_hat.max(1)[1].view(-1).long().cpu().data.numpy()
-        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
-        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels)
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels - 1)
+        y_target = P.inv_mulaw_quantize(y_target, hparams.quantize_channels - 1)
     elif is_mulaw(hparams.input_type):
         y_hat = P.inv_mulaw(y_hat.view(-1).cpu().data.numpy(), hparams.quantize_channels)
         y_target = P.inv_mulaw(y_target, hparams.quantize_channels)
@@ -570,12 +640,19 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
         y_hat = y_hat[idx].data.cpu().long().numpy()
         y = y[idx].view(-1).data.cpu().long().numpy()
 
-        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels)
-        y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
+        y_hat = P.inv_mulaw_quantize(y_hat, hparams.quantize_channels - 1)
+        y = P.inv_mulaw_quantize(y, hparams.quantize_channels - 1)
     else:
         # (B, T)
-        y_hat = sample_from_discretized_mix_logistic(
-            y_hat, log_scale_min=hparams.log_scale_min)
+        if hparams.output_distribution == "Logistic":
+            y_hat = sample_from_discretized_mix_logistic(
+                y_hat, log_scale_min=hparams.log_scale_min)
+        elif hparams.output_distribution == "Normal":
+            y_hat = sample_from_mix_gaussian(
+                y_hat, log_scale_min=hparams.log_scale_min)
+        else:
+            assert False
+
         # (T,)
         y_hat = y_hat[idx].view(-1).data.cpu().numpy()
         y = y[idx].view(-1).data.cpu().numpy()
@@ -589,7 +666,7 @@ def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=Non
     y[length:] = 0
 
     # Save audio
-    audio_dir = join(checkpoint_dir, "audio")
+    audio_dir = join(checkpoint_dir, "intermediate", "audio")
     os.makedirs(audio_dir, exist_ok=True)
     path = join(audio_dir, "step{:09d}_predicted.wav".format(global_step))
     librosa.output.write_wav(path, y_hat, sr=hparams.sample_rate)
@@ -622,7 +699,7 @@ def __train_step(device, phase, epoch, global_step, global_test_step,
     # y : (B, T, 1)
     # c : (B, C, T)
     # g : (B,)
-    train = (phase == "train")
+    train = (phase == "train_no_dev")
     clip_thresh = hparams.clip_thresh
     if train:
         model.train()
@@ -632,11 +709,11 @@ def __train_step(device, phase, epoch, global_step, global_test_step,
         step = global_test_step
 
     # Learning rate schedule
-    current_lr = hparams.initial_learning_rate
+    current_lr = hparams.optimizer_params["lr"]
     if train and hparams.lr_schedule is not None:
         lr_schedule_f = getattr(lrschedule, hparams.lr_schedule)
         current_lr = lr_schedule_f(
-            hparams.initial_learning_rate, step, **hparams.lr_schedule_kwargs)
+            hparams.optimizer_params["lr"], step, **hparams.lr_schedule_kwargs)
         for param_group in optimizer.param_groups:
             param_group['lr'] = current_lr
     optimizer.zero_grad()
@@ -704,7 +781,14 @@ def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=No
     if is_mulaw_quantize(hparams.input_type):
         criterion = MaskedCrossEntropyLoss()
     else:
-        criterion = DiscretizedMixturelogisticLoss()
+        if hparams.output_distribution == "Logistic":
+            criterion = DiscretizedMixturelogisticLoss()
+        elif hparams.output_distribution == "Normal":
+            criterion = MixtureGaussianLoss()
+        else:
+            raise RuntimeError(
+                "Not supported output distribution type: {}".format(
+                    hparams.output_distribution))
 
     if hparams.exponential_moving_average:
         ema = ExponentialMovingAverage(hparams.ema_decay)
@@ -717,13 +801,13 @@ def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=No
     global global_step, global_epoch, global_test_step
     while global_epoch < hparams.nepochs:
         for phase, data_loader in data_loaders.items():
-            train = (phase == "train")
+            train = (phase == "train_no_dev")
             running_loss = 0.
             test_evaluated = False
             for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
                 # Whether to save eval (i.e., online decoding) result
                 do_eval = False
-                eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
+                eval_dir = join(checkpoint_dir, "intermediate", "{}_eval".format(phase))
                 # Do eval per eval_interval for train
                 if train and global_step > 0 \
                         and global_step % hparams.train_eval_interval == 0:
@@ -750,6 +834,10 @@ def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=No
                 else:
                     global_test_step += 1
 
+                if global_step >= hparams.max_train_steps:
+                    print("Training reached max train steps ({}). will exit".format(hparams.max_train_steps))
+                    return ema
+
             # log per epoch
             averaged_loss = running_loss / len(data_loader)
             writer.add_scalar("{} loss (per epoch)".format(phase),
@@ -758,6 +846,7 @@ def train_loop(device, model, data_loaders, optimizer, writer, checkpoint_dir=No
                 global_step, phase, running_loss / len(data_loader)))
 
         global_epoch += 1
+    return ema
 
 
 def save_checkpoint(device, model, optimizer, step, checkpoint_dir, epoch, ema=None):
@@ -774,6 +863,10 @@ def save_checkpoint(device, model, optimizer, step, checkpoint_dir, epoch, ema=N
     }, checkpoint_path)
     print("Saved checkpoint:", checkpoint_path)
 
+    import shutil
+    latest_pth = join(checkpoint_dir, "checkpoint_latest.pth")
+    shutil.copyfile(checkpoint_path, latest_pth)
+
     if ema is not None:
         averaged_model = clone_as_averaged_model(device, model, ema)
         checkpoint_path = join(
@@ -787,6 +880,9 @@ def save_checkpoint(device, model, optimizer, step, checkpoint_dir, epoch, ema=N
         }, checkpoint_path)
         print("Saved averaged checkpoint:", checkpoint_path)
 
+        latest_pth = join(checkpoint_dir, "checkpoint_latest_ema.pth")
+        shutil.copyfile(checkpoint_path, latest_pth)
+
 
 def build_model():
     if is_mulaw_quantize(hparams.input_type):
@@ -798,7 +894,10 @@ def build_model():
         s += "Notice that upsample conv layers will never be used."
         warn(s)
 
-    model = getattr(builder, hparams.builder)(
+    upsample_params = hparams.upsample_params
+    upsample_params["cin_channels"] = hparams.cin_channels
+    upsample_params["cin_pad"] = hparams.cin_pad
+    model = WaveNet(
         out_channels=hparams.out_channels,
         layers=hparams.layers,
         stacks=hparams.stacks,
@@ -807,15 +906,14 @@ def build_model():
         skip_out_channels=hparams.skip_out_channels,
         cin_channels=hparams.cin_channels,
         gin_channels=hparams.gin_channels,
-        weight_normalization=hparams.weight_normalization,
         n_speakers=hparams.n_speakers,
         dropout=hparams.dropout,
         kernel_size=hparams.kernel_size,
+        cin_pad=hparams.cin_pad,
         upsample_conditional_features=hparams.upsample_conditional_features,
-        upsample_scales=hparams.upsample_scales,
-        freq_axis_kernel_size=hparams.freq_axis_kernel_size,
+        upsample_params=upsample_params,
         scalar_input=is_scalar_input(hparams.input_type),
-        legacy=hparams.legacy,
+        output_distribution=hparams.output_distribution,
     )
     return model
 
@@ -872,22 +970,26 @@ def restore_parts(path, model):
                 warn("{}: may contain invalid size of weight. skipping...".format(k))
 
 
-def get_data_loaders(data_root, speaker_id, test_shuffle=True):
+def get_data_loaders(dump_root, speaker_id, test_shuffle=True):
     data_loaders = {}
     local_conditioning = hparams.cin_channels > 0
-    for phase in ["train", "test"]:
-        train = phase == "train"
-        X = FileSourceDataset(RawAudioDataSource(data_root, speaker_id=speaker_id,
-                                                 train=train,
-                                                 test_size=hparams.test_size,
-                                                 test_num_samples=hparams.test_num_samples,
-                                                 random_state=hparams.random_state))
+
+    if hparams.max_time_steps is not None:
+        max_steps = ensure_divisible(hparams.max_time_steps, audio.get_hop_size(), True)
+    else:
+        max_steps = None
+
+    for phase in ["train_no_dev", "dev"]:
+        train = phase == "train_no_dev"
+        X = FileSourceDataset(
+            RawAudioDataSource(join(dump_root, phase), speaker_id=speaker_id,
+                               max_steps=max_steps, cin_pad=hparams.cin_pad,
+                               hop_size=audio.get_hop_size()))
         if local_conditioning:
-            Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id=speaker_id,
-                                                      train=train,
-                                                      test_size=hparams.test_size,
-                                                      test_num_samples=hparams.test_num_samples,
-                                                      random_state=hparams.random_state))
+            Mel = FileSourceDataset(
+                MelSpecDataSource(join(dump_root, phase), speaker_id=speaker_id,
+                                  max_steps=max_steps, cin_pad=hparams.cin_pad,
+                                  hop_size=audio.get_hop_size()))
             assert len(X) == len(Mel)
             print("Local conditioning enabled. Shape of a sample: {}.".format(
                 Mel[0].shape))
@@ -910,7 +1012,7 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
 
         dataset = PyTorchDataset(X, Mel)
         data_loader = data_utils.DataLoader(
-            dataset, batch_size=hparams.batch_size,
+            dataset, batch_size=hparams.batch_size, drop_last=True,
             num_workers=hparams.num_workers, sampler=sampler, shuffle=shuffle,
             collate_fn=collate_fn, pin_memory=hparams.pin_memory)
 
@@ -940,9 +1042,9 @@ if __name__ == "__main__":
     speaker_id = int(speaker_id) if speaker_id is not None else None
     preset = args["--preset"]
 
-    data_root = args["--data-root"]
-    if data_root is None:
-        data_root = join(dirname(__file__), "data", "ljspeech")
+    dump_root = args["--dump-root"]
+    if dump_root is None:
+        dump_root = join(dirname(__file__), "data", "ljspeech")
 
     log_event_path = args["--log-event-path"]
     reset_optimizer = args["--reset-optimizer"]
@@ -960,8 +1062,14 @@ if __name__ == "__main__":
 
     os.makedirs(checkpoint_dir, exist_ok=True)
 
+    output_json_path = join(checkpoint_dir, "hparams.json")
+    with open(output_json_path, "w") as f:
+        json.dump(hparams.values(), f, indent=2)
+
     # Dataloader setup
-    data_loaders = get_data_loaders(data_root, speaker_id, test_shuffle=True)
+    data_loaders = get_data_loaders(dump_root, speaker_id, test_shuffle=True)
+
+    maybe_set_epochs_based_on_max_steps(hparams, len(data_loaders["train_no_dev"]))
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -972,11 +1080,9 @@ if __name__ == "__main__":
     print("Receptive field (samples / ms): {} / {}".format(
         receptive_field, receptive_field / fs * 1000))
 
-    optimizer = optim.Adam(model.parameters(),
-                           lr=hparams.initial_learning_rate, betas=(
-        hparams.adam_beta1, hparams.adam_beta2),
-        eps=hparams.adam_eps, weight_decay=hparams.weight_decay,
-        amsgrad=hparams.amsgrad)
+    from torch import optim
+    Optimizer = getattr(optim, hparams.optimizer)
+    optimizer = Optimizer(model.parameters(), **hparams.optimizer_params)
 
     if checkpoint_restore_parts is not None:
         restore_parts(checkpoint_restore_parts, model)
@@ -992,15 +1098,16 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir=log_event_path)
 
     # Train!
+    ema = None
     try:
-        train_loop(device, model, data_loaders, optimizer, writer,
-                   checkpoint_dir=checkpoint_dir)
+        ema = train_loop(device, model, data_loaders, optimizer, writer,
+                         checkpoint_dir=checkpoint_dir)
     except KeyboardInterrupt:
         print("Interrupted!")
         pass
     finally:
         save_checkpoint(
-            device, model, optimizer, global_step, checkpoint_dir, global_epoch)
+            device, model, optimizer, global_step, checkpoint_dir, global_epoch, ema)
 
     print("Finished")
 

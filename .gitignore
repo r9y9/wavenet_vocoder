@@ -1,12 +1,24 @@
 foobar*
 pretrained_models
 notebooks
-wavenet_vocoder/version.py
 checkpoints*
 log
 generated
 data
 text
+
+# recipe related (adapted from espnet)
+egs/*/data*
+egs/*/db
+egs/*/downloads
+egs/*/dump
+egs/*/enhan
+egs/*/exp
+egs/*/fbank
+egs/*/mfcc
+egs/*/stft
+egs/*/tensorboard
+egs/*/wav*
 
 # Created by https://www.gitignore.io
 

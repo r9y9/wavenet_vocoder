@@ -10,11 +10,11 @@ from torch import nn
 from torch.nn import functional as F
 
 
-def Conv1d(in_channels, out_channels, kernel_size, dropout=0, std_mul=4.0, **kwargs):
+def Conv1d(in_channels, out_channels, kernel_size, dropout=0, **kwargs):
     m = conv.Conv1d(in_channels, out_channels, kernel_size, **kwargs)
-    std = math.sqrt((std_mul * (1.0 - dropout)) / (m.kernel_size[0] * in_channels))
-    m.weight.data.normal_(mean=0, std=std)
-    m.bias.data.zero_()
+    nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
+    if m.bias is not None:
+        nn.init.constant_(m.bias, 0)
     return nn.utils.weight_norm(m)
 
 
@@ -24,28 +24,19 @@ def Embedding(num_embeddings, embedding_dim, padding_idx, std=0.01):
     return m
 
 
-def ConvTranspose2d(in_channels, out_channels, kernel_size,
-                    weight_normalization=True, **kwargs):
+def ConvTranspose2d(in_channels, out_channels, kernel_size, **kwargs):
     freq_axis_kernel_size = kernel_size[0]
     m = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, **kwargs)
     m.weight.data.fill_(1.0 / freq_axis_kernel_size)
     m.bias.data.zero_()
-    if weight_normalization:
-        return nn.utils.weight_norm(m)
-    else:
-        return m
+    return nn.utils.weight_norm(m)
 
 
-def Conv1d1x1(in_channels, out_channels, bias=True, weight_normalization=True):
+def Conv1d1x1(in_channels, out_channels, bias=True):
     """1-by-1 convolution layer
     """
-    if weight_normalization:
-        assert bias
-        return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                      dilation=1, bias=bias, std_mul=1.0)
-    else:
-        return conv.Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
-                           dilation=1, bias=bias)
+    return Conv1d(in_channels, out_channels, kernel_size=1, padding=0,
+                  dilation=1, bias=bias)
 
 
 def _conv1x1_forward(conv, x, is_incremental):
@@ -75,15 +66,13 @@ class ResidualConv1dGLU(nn.Module):
         padding (int): Padding for convolution layers. If None, proper padding
           is computed depends on dilation and kernel_size.
         dilation (int): Dilation factor.
-        weight_normalization (bool): If True, DeepVoice3-style weight
-          normalization is applied.
     """
 
     def __init__(self, residual_channels, gate_channels, kernel_size,
                  skip_out_channels=None,
                  cin_channels=-1, gin_channels=-1,
                  dropout=1 - 0.95, padding=None, dilation=1, causal=True,
-                 bias=True, weight_normalization=True, *args, **kwargs):
+                 bias=True, *args, **kwargs):
         super(ResidualConv1dGLU, self).__init__()
         self.dropout = dropout
         if skip_out_channels is None:
@@ -96,37 +85,26 @@ class ResidualConv1dGLU(nn.Module):
                 padding = (kernel_size - 1) // 2 * dilation
         self.causal = causal
 
-        if weight_normalization:
-            assert bias
-            self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
-                               padding=padding, dilation=dilation,
-                               bias=bias, std_mul=1.0, *args, **kwargs)
-        else:
-            self.conv = conv.Conv1d(residual_channels, gate_channels, kernel_size,
-                                    padding=padding, dilation=dilation,
-                                    bias=bias, *args, **kwargs)
+        self.conv = Conv1d(residual_channels, gate_channels, kernel_size,
+                           padding=padding, dilation=dilation,
+                           bias=bias, *args, **kwargs)
 
         # local conditioning
         if cin_channels > 0:
-            self.conv1x1c = Conv1d1x1(cin_channels, gate_channels,
-                                      bias=bias,
-                                      weight_normalization=weight_normalization)
+            self.conv1x1c = Conv1d1x1(cin_channels, gate_channels, bias=False)
         else:
             self.conv1x1c = None
 
         # global conditioning
         if gin_channels > 0:
-            self.conv1x1g = Conv1d1x1(gin_channels, gate_channels, bias=bias,
-                                      weight_normalization=weight_normalization)
+            self.conv1x1g = Conv1d1x1(gin_channels, gate_channels, bias=False)
         else:
             self.conv1x1g = None
 
         # conv output is split into two groups
         gate_out_channels = gate_channels // 2
-        self.conv1x1_out = Conv1d1x1(gate_out_channels, residual_channels, bias=bias,
-                                     weight_normalization=weight_normalization)
-        self.conv1x1_skip = Conv1d1x1(gate_out_channels, skip_out_channels, bias=bias,
-                                      weight_normalization=weight_normalization)
+        self.conv1x1_out = Conv1d1x1(gate_out_channels, residual_channels, bias=bias)
+        self.conv1x1_skip = Conv1d1x1(gate_out_channels, skip_out_channels, bias=bias)
 
     def forward(self, x, c=None, g=None):
         return self._forward(x, c, g, False)
