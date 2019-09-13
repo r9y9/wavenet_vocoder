@@ -10,7 +10,6 @@ options:
     --length=<T>                Steps to generate [default: 32000].
     --speaker-id=<N>            Use specific speaker of data in case for multi-speaker datasets.
     --initial-value=<n>         Initial value for the WaveNet decoder.
-    --file-name-suffix=<s>      File name suffix [default: ].
     --output-html               Output html for blog post.
     --num-utterances=N>         Generate N utterenaces per speaker [default: -1].
     --verbose=<level>           Verbosity level [default: 0].
@@ -96,7 +95,6 @@ if __name__ == "__main__":
     speaker_id = int(speaker_id) if speaker_id is not None else None
     initial_value = args["--initial-value"]
     initial_value = None if initial_value is None else float(initial_value)
-    file_name_suffix = args["--file-name-suffix"]
     output_html = args["--output-html"]
     num_utterances = int(args["--num-utterances"])
     preset = args["--preset"]
@@ -211,15 +209,15 @@ if __name__ == "__main__":
 
             # Paths
             if g is None:
-                dst_wav_path = join(dst_dir, "{}{}_gen.wav".format(
-                    name, file_name_suffix))
-                target_wav_path = join(dst_dir, "{}{}_ref.wav".format(
-                    name, file_name_suffix))
+                dst_wav_path = join(dst_dir, "{}_gen.wav".format(
+                    name))
+                target_wav_path = join(dst_dir, "{}_ref.wav".format(
+                    name))
             else:
-                dst_wav_path = join(dst_dir, "speaker{}_{}{}_gen.wav".format(
-                    g, name, file_name_suffix))
-                target_wav_path = join(dst_dir, "speaker{}_{}{}_ref.wav".format(
-                    g, name, file_name_suffix))
+                dst_wav_path = join(dst_dir, "speaker{}_{}_gen.wav".format(
+                    g, name))
+                target_wav_path = join(dst_dir, "speaker{}_{}_ref.wav".format(
+                    g, name))
 
             # save
             if has_ref_file:
