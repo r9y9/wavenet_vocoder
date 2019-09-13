@@ -39,6 +39,14 @@ use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
 
+def to_int16(x):
+    if x.dtype == np.int16:
+        return x
+    assert x.dtype == np.float32
+    assert x.min() >= -1 and x.max() <= 1.0
+    return (x * 32767).astype(np.int16)
+
+
 def dummy_collate(batch):
     N = len(batch)
     input_lengths = [(len(x) - hparams.cin_pad * 2) * audio.get_hop_size() for x in batch]
@@ -235,9 +243,9 @@ if __name__ == "__main__":
             if has_ref_file:
                 ref = np.clip(ref, -1.0, 1.0)
 
-            wavfile.write(dst_wav_path, hparams.sample_rate, gen.astype(np.float32))
+            wavfile.write(dst_wav_path, hparams.sample_rate, to_int16(gen))
             if has_ref_file:
-                wavfile.write(target_wav_path, hparams.sample_rate, ref.astype(np.float32))
+                wavfile.write(target_wav_path, hparams.sample_rate, to_int16(ref))
 
             # log (TODO)
             if output_html and False:
