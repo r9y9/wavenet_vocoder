@@ -18,6 +18,7 @@ options:
 from docopt import docopt
 
 import sys
+from glob import glob
 import os
 from os.path import dirname, join, basename, splitext, exists
 import torch
@@ -58,14 +59,18 @@ def dummy_collate(batch):
 
 
 def get_data_loader(data_dir, collate_fn):
-    X = FileSourceDataset(RawAudioDataSource(data_dir,
-                                             hop_size=audio.get_hop_size(),
-                                             max_steps=None, cin_pad=hparams.cin_pad))
+    wav_paths = glob(join(data_dir, "*-wave.npy"))
+    if len(wav_paths) != 0:
+        X = FileSourceDataset(RawAudioDataSource(data_dir,
+                                                 hop_size=audio.get_hop_size(),
+                                                 max_steps=None, cin_pad=hparams.cin_pad))
+    else:
+        X = None
     C = FileSourceDataset(MelSpecDataSource(data_dir,
                                             hop_size=audio.get_hop_size(),
                                             max_steps=None, cin_pad=hparams.cin_pad))
     # No audio found:
-    if len(X) == 0:
+    if X is None:
         assert len(C) > 0
         data_loader = data_utils.DataLoader(
             C, batch_size=hparams.batch_size, drop_last=False,
