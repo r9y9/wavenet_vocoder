@@ -253,6 +253,7 @@ tensorboard --logdir=log
 
 ### List of papers that used the repository
 
+- A Comparison of Recent Neural Vocoders for Speech Signal Reconstruction https://www.isca-speech.org/archive/SSW_2019/abstracts/SSW10_O_1-2.html
 - WaveGlow: A Flow-based Generative Network for Speech Synthesis https://arxiv.org/abs/1811.00002
 - WaveCycleGAN2: Time-domain Neural Post-filter for Speech Waveform Generation https://arxiv.org/abs/1904.02892
 - Parametric Resynthesis with neural vocoders https://arxiv.org/abs/1906.06762
