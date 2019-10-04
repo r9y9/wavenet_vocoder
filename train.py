@@ -173,6 +173,7 @@ class _NPYDataSource(FileDataSource):
         meta = join(self.dump_root, "train.txt")
         if not exists(meta):
             paths = sorted(glob(join(self.dump_root, "*-{}.npy".format(self.typ))))
+            self.lengths = [self.collect_features(path).shape[0] for path in paths]
             return paths
 
         with open(meta, "rb") as f:
