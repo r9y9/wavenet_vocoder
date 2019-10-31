@@ -11,6 +11,10 @@ The goal of the repository is to provide an implementation of the WaveNet vocode
 
 Audio samples are available at https://r9y9.github.io/wavenet_vocoder/.
 
+## News
+
+- 2019/10/31: The repository has been adapted to [ESPnet](https://github.com/espnet/espnet). English, Chinese, and Japanese samples and pretrained models are available there. See https://github.com/espnet/espnet and https://github.com/espnet/espnet#tts-results for details.
+
 ## Online TTS demo
 
 A notebook supposed to be executed on https://colab.research.google.com is available:
@@ -208,14 +212,14 @@ python synthesis.py ${checkpoint_path} ${output_dir} --preset=<json> --hparams="
 
 Important options:
 
-- `--conditional=<path>`: (Required for onditional WaveNet) Path of local conditional features (.npy). If this is specified, number of time steps to generate is determined by the size of conditional feature.
+- `--conditional=<path>`: (Required for conditional WaveNet) Path of local conditional features (.npy). If this is specified, number of time steps to generate is determined by the size of conditional feature.
 
 
 ### Training scenarios
 
 #### Training un-conditional WaveNet
 
-**NOTICE**: This is probably not working now. Please check v0.1.2 for the working version.
+**NOTICE**: This is probably not working now. Please check v0.1.1 for the working version.
 
 ```
 python train.py --dump-root=./data/cmu_arctic/
@@ -233,7 +237,7 @@ python train.py --dump-root=./data/cmu_arctic/ --speaker-id=0 \
 
 #### Training WaveNet conditioned on mel-spectrogram and speaker embedding
 
-**NOTICE**: This is probably not working now. Please check v0.1.2 for the working version.
+**NOTICE**: This is probably not working now. Please check v0.1.1 for the working version.
 
 ```
 python train.py --dump-root=./data/cmu_arctic/ \
@@ -259,7 +263,7 @@ tensorboard --logdir=log
 - Parametric Resynthesis with neural vocoders https://arxiv.org/abs/1906.06762
 - Representation Mixing fo TTS Synthesis https://arxiv.org/abs/1811.07240
 - A Unified Neural Architecture for Instrumental Audio Tasks https://arxiv.org/abs/1903.00142
-- TACOTRON: TOWARDS END-TO-END SPEECH SYNTHESIS https://arxiv.org/pdf/1703.10135.pdf
+- ESPnet-TTS: Unified, Reproducible, and Integratable Open Source End-to-End Text-to-Speech Toolkit: https://arxiv.org/abs/1910.10909
 
 Thank you very much!! If you find a new one, please submit a PR.
 
@@ -271,5 +275,6 @@ Thank you very much!! If you find a new one, please submit a PR.
 - [Jonathan Shen, Ruoming Pang, Ron J. Weiss, et al, "Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions", arXiv:1712.05884, Dec 2017.](https://arxiv.org/abs/1712.05884)
 - [Wei Ping, Kainan Peng, Andrew Gibiansky, et al, "Deep Voice 3: 2000-Speaker Neural Text-to-Speech", arXiv:1710.07654, Oct. 2017.](https://arxiv.org/abs/1710.07654)
 - [Tom Le Paine, Pooya Khorrami, Shiyu Chang, et al, "Fast Wavenet Generation Algorithm", arXiv:1611.09482, Nov. 2016](https://arxiv.org/abs/1611.09482)
-- [Ye Jia, Yu Zhang, Ron J. Weiss, Quan Wang, Jonathan Shen, Fei Ren, Zhifeng Chen, Patrick Nguyen, Ruoming Pang, Ignacio Lopez Moreno, Yonghui Wu, et al, "Transfer Learning from Speaker Verification to Multispeaker Text-To-Speech Synthesis" , arXiv:1806.04558v4 cs.CL 2 Jan 2019]
-(https://arxiv.org/abs/1806.04558)
+- [Ye Jia, Yu Zhang, Ron J. Weiss, Quan Wang, Jonathan Shen, Fei Ren, Zhifeng Chen, Patrick Nguyen, Ruoming Pang, Ignacio Lopez Moreno, Yonghui Wu, et al, "Transfer Learning from Speaker Verification to Multispeaker Text-To-Speech Synthesis" , arXiv:1806.04558v4 cs.CL 2 Jan 2019](https://arxiv.org/abs/1806.04558)
+
+test
