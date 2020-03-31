@@ -276,5 +276,3 @@ Thank you very much!! If you find a new one, please submit a PR.
 - [Wei Ping, Kainan Peng, Andrew Gibiansky, et al, "Deep Voice 3: 2000-Speaker Neural Text-to-Speech", arXiv:1710.07654, Oct. 2017.](https://arxiv.org/abs/1710.07654)
 - [Tom Le Paine, Pooya Khorrami, Shiyu Chang, et al, "Fast Wavenet Generation Algorithm", arXiv:1611.09482, Nov. 2016](https://arxiv.org/abs/1611.09482)
 - [Ye Jia, Yu Zhang, Ron J. Weiss, Quan Wang, Jonathan Shen, Fei Ren, Zhifeng Chen, Patrick Nguyen, Ruoming Pang, Ignacio Lopez Moreno, Yonghui Wu, et al, "Transfer Learning from Speaker Verification to Multispeaker Text-To-Speech Synthesis" , arXiv:1806.04558v4 cs.CL 2 Jan 2019](https://arxiv.org/abs/1806.04558)
-
-test
