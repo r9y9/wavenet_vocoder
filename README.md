@@ -267,6 +267,10 @@ tensorboard --logdir=log
 
 Thank you very much!! If you find a new one, please submit a PR.
 
+## Sponsers
+
+- https://github.com/echelon
+
 ## References
 
 - [Aaron van den Oord, Sander Dieleman, Heiga Zen, et al, "WaveNet: A Generative Model for Raw Audio", 	arXiv:1609.03499, Sep 2016.](https://arxiv.org/abs/1609.03499)
