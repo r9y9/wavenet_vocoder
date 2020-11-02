@@ -267,7 +267,7 @@ tensorboard --logdir=log
 
 Thank you very much!! If you find a new one, please submit a PR.
 
-## Sponsers
+## Sponsors
 
 - https://github.com/echelon
 
