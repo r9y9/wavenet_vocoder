@@ -86,6 +86,7 @@ hparams = tf.contrib.training.HParams(
     # Data loader
     pin_memory=True,
     num_workers=2,
+    tacotron_convert=False,
 
     # train/test
     # test size can be specified as portion or num samples

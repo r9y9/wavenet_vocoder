@@ -98,7 +98,7 @@ def _pad_2d(x, max_len, b_pad=0):
 
 class _NPYDataSource(FileDataSource):
     def __init__(self, data_root, col, speaker_id=None,
-                 train=True, test_size=0.05, test_num_samples=None, random_state=1234):
+                 train=True, test_size=0.05, test_num_samples=None, random_state=1234, tacotron_convert=False):
         self.data_root = data_root
         self.col = col
         self.lengths = []
@@ -109,6 +109,7 @@ class _NPYDataSource(FileDataSource):
         self.test_size = test_size
         self.test_num_samples = test_num_samples
         self.random_state = random_state
+        self.tacotron_convert = tacotron_convert
 
     def interest_indices(self, paths):
         indices = np.arange(len(paths))
@@ -168,8 +169,13 @@ class _NPYDataSource(FileDataSource):
         return paths
 
     def collect_features(self, path):
-        return np.load(path)
-
+        c = np.load(path)
+        if self.tacotron_convert:
+            if c.shape[1] != hparams.num_mels:
+               np.swapaxes(c, 0, 1)
+               # Range [0, 4] was used for training Tacotron2 but WaveNet vocoder assumes [0, 1]
+            c = np.interp(c, (0, 4), (0, 1))
+        return c
 
 class RawAudioDataSource(_NPYDataSource):
     def __init__(self, data_root, **kwargs):
@@ -868,7 +874,7 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
                                                       train=train,
                                                       test_size=hparams.test_size,
                                                       test_num_samples=hparams.test_num_samples,
-                                                      random_state=hparams.random_state))
+                                                      random_state=hparams.random_state, tacotron_convert=hparams.tacotron_convert))
             assert len(X) == len(Mel)
             print("Local conditioning enabled. Shape of a sample: {}.".format(
                 Mel[0].shape))
