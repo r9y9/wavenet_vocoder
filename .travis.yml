@@ -1,3 +1,5 @@
+sudo: false
+dist: xenial
 language: python
 
 python:
@@ -8,6 +10,7 @@ notifications:
 
 before_install:
   - sudo apt-get update
+  - sudo apt-get install libsndfile-dev sox libav-tools
   - if [["$TRAVIS_PYTHON_VERSION" == "2.7"]]; then
       wget http://repo.continuum.io/miniconda/Miniconda-3.8.3-Linux-x86_64.sh -O miniconda.sh;
     else

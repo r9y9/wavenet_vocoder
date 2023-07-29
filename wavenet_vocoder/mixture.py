@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.distributions import Normal
 
 
 def log_sum_exp(x):
@@ -57,16 +58,16 @@ def discretized_mix_logistic_loss(y_hat, y, num_classes=256,
     centered_y = y - means
     inv_stdv = torch.exp(-log_scales)
     plus_in = inv_stdv * (centered_y + 1. / (num_classes - 1))
-    cdf_plus = F.sigmoid(plus_in)
+    cdf_plus = torch.sigmoid(plus_in)
     min_in = inv_stdv * (centered_y - 1. / (num_classes - 1))
-    cdf_min = F.sigmoid(min_in)
+    cdf_min = torch.sigmoid(min_in)
 
     # log probability for edge case of 0 (before scaling)
-    # equivalent: torch.log(F.sigmoid(plus_in))
+    # equivalent: torch.log(torch.sigmoid(plus_in))
     log_cdf_plus = plus_in - F.softplus(plus_in)
 
     # log probability for edge case of 255 (before scaling)
-    # equivalent: (1 - F.sigmoid(min_in)).log()
+    # equivalent: (1 - torch.sigmoid(min_in)).log()
     log_one_minus_cdf_min = -F.softplus(min_in)
 
     # probability for all other cases
@@ -114,7 +115,8 @@ def to_one_hot(tensor, n, fill_with=1.):
     return one_hot
 
 
-def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
+def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0,
+                                         clamp_log_scale=False):
     """
     Sample from discretized mixture of logistic distributions
 
@@ -141,8 +143,9 @@ def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
     one_hot = to_one_hot(argmax, nr_mix)
     # select logistic parameters
     means = torch.sum(y[:, :, nr_mix:2 * nr_mix] * one_hot, dim=-1)
-    log_scales = torch.clamp(torch.sum(
-        y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1), min=log_scale_min)
+    log_scales = torch.sum(y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1)
+    if clamp_log_scale:
+        log_scales = torch.clamp(log_scales, min=log_scale_min)
     # sample from logistic & clip to interval
     # we don't actually round to the nearest 8bit value when sampling
     u = means.data.new(means.size()).uniform_(1e-5, 1.0 - 1e-5)
@@ -150,4 +153,118 @@ def sample_from_discretized_mix_logistic(y, log_scale_min=-7.0):
 
     x = torch.clamp(torch.clamp(x, min=-1.), max=1.)
 
+    return x
+
+
+# we can easily define discretized version of the gaussian loss, however,
+# use continuous version as same as the https://clarinet-demo.github.io/
+def mix_gaussian_loss(y_hat, y, log_scale_min=-7.0, reduce=True):
+    """Mixture of continuous gaussian distributions loss
+
+    Note that it is assumed that input is scaled to [-1, 1].
+
+    Args:
+        y_hat (Tensor): Predicted output (B x C x T)
+        y (Tensor): Target (B x T x 1).
+        log_scale_min (float): Log scale minimum value
+        reduce (bool): If True, the losses are averaged or summed for each
+          minibatch.
+    Returns
+        Tensor: loss
+    """
+    assert y_hat.dim() == 3
+    C = y_hat.size(1)
+    if C == 2:
+        nr_mix = 1
+    else:
+        assert y_hat.size(1) % 3 == 0
+        nr_mix = y_hat.size(1) // 3
+
+    # (B x T x C)
+    y_hat = y_hat.transpose(1, 2)
+
+    # unpack parameters.
+    if C == 2:
+        # special case for C == 2, just for compatibility
+        logit_probs = None
+        means = y_hat[:, :, 0:1]
+        log_scales = torch.clamp(y_hat[:, :, 1:2], min=log_scale_min)
+    else:
+        #  (B, T, num_mixtures) x 3
+        logit_probs = y_hat[:, :, :nr_mix]
+        means = y_hat[:, :, nr_mix:2 * nr_mix]
+        log_scales = torch.clamp(y_hat[:, :, 2 * nr_mix:3 * nr_mix], min=log_scale_min)
+
+    # B x T x 1 -> B x T x num_mixtures
+    y = y.expand_as(means)
+
+    centered_y = y - means
+    dist = Normal(loc=0., scale=torch.exp(log_scales))
+    # do we need to add a trick to avoid log(0)?
+    log_probs = dist.log_prob(centered_y)
+
+    if nr_mix > 1:
+        log_probs = log_probs + F.log_softmax(logit_probs, -1)
+
+    if reduce:
+        if nr_mix == 1:
+            return -torch.sum(log_probs)
+        else:
+            return -torch.sum(log_sum_exp(log_probs))
+    else:
+        if nr_mix == 1:
+            return -log_probs
+        else:
+            return -log_sum_exp(log_probs).unsqueeze(-1)
+
+
+def sample_from_mix_gaussian(y, log_scale_min=-7.0):
+    """
+    Sample from (discretized) mixture of gaussian distributions
+    Args:
+        y (Tensor): B x C x T
+        log_scale_min (float): Log scale minimum value
+    Returns:
+        Tensor: sample in range of [-1, 1].
+    """
+    C = y.size(1)
+    if C == 2:
+        nr_mix = 1
+    else:
+        assert y.size(1) % 3 == 0
+        nr_mix = y.size(1) // 3
+
+    # B x T x C
+    y = y.transpose(1, 2)
+
+    if C == 2:
+        logit_probs = None
+    else:
+        logit_probs = y[:, :, :nr_mix]
+
+    if nr_mix > 1:
+        # sample mixture indicator from softmax
+        temp = logit_probs.data.new(logit_probs.size()).uniform_(1e-5, 1.0 - 1e-5)
+        temp = logit_probs.data - torch.log(- torch.log(temp))
+        _, argmax = temp.max(dim=-1)
+
+        # (B, T) -> (B, T, nr_mix)
+        one_hot = to_one_hot(argmax, nr_mix)
+
+        # Select means and log scales
+        means = torch.sum(y[:, :, nr_mix:2 * nr_mix] * one_hot, dim=-1)
+        log_scales = torch.sum(y[:, :, 2 * nr_mix:3 * nr_mix] * one_hot, dim=-1)
+    else:
+        if C == 2:
+            means, log_scales = y[:, :, 0], y[:, :, 1]
+        elif C == 3:
+            means, log_scales = y[:, :, 1], y[:, :, 2]
+        else:
+            assert False, "shouldn't happen"
+
+    scales = torch.exp(log_scales)
+    dist = Normal(loc=means, scale=scales)
+    x = dist.sample()
+
+    x = torch.clamp(x, min=-1.0, max=1.0)
     return x

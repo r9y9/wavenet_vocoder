@@ -1,15 +1,12 @@
-import tensorflow as tf
+from wavenet_vocoder.tfcompat.hparam import HParams
 import numpy as np
 
 # NOTE: If you want full control for model architecture. please take a look
 # at the code and change whatever you want. Some hyper parameters are hardcoded.
 
 # Default hyperparameters:
-hparams = tf.contrib.training.HParams(
+hparams = HParams(
     name="wavenet_vocoder",
-
-    # Convenient model builder
-    builder="wavenet",
 
     # Input type:
     # 1. raw [-1, 1]
@@ -24,6 +21,14 @@ hparams = tf.contrib.training.HParams(
     quantize_channels=65536,  # 65536 or 256
 
     # Audio:
+    # time-domain pre/post-processing
+    # e.g., preemphasis/inv_preemphasis
+    # ref: LPCNet https://arxiv.org/abs/1810.11846
+    preprocess="",
+    postprocess="",
+    # waveform domain scaling
+    global_gain_scale=1.0,
+
     sample_rate=22050,
     # this is only valid for mulaw is True
     silence_threshold=2,
@@ -34,48 +39,41 @@ hparams = tf.contrib.training.HParams(
     # shift can be specified by either hop_size or frame_shift_ms
     hop_size=256,
     frame_shift_ms=None,
-    min_level_db=-100,
-    ref_level_db=20,
-    # whether to rescale waveform or not.
-    # Let x is an input waveform, rescaled waveform y is given by:
-    # y = x / np.abs(x).max() * rescaling_max
-    rescaling=True,
-    rescaling_max=0.999,
-    # mel-spectrogram is normalized to [0, 1] for each utterance and clipping may
-    # happen depends on min_level_db and ref_level_db, causing clipping noise.
-    # If False, assertion is added to ensure no clipping happens.o0
-    allow_clipping_in_normalization=True,
+    win_length=1024,
+    win_length_ms=-1.0,
+    window="hann",
 
-    # Mixture of logistic distributions:
-    log_scale_min=float(np.log(1e-14)),
+    # DC removal
+    highpass_cutoff=70.0,
+
+    # Parametric output distribution type for scalar input
+    # 1) Logistic or 2) Normal
+    output_distribution="Logistic",
+    log_scale_min=-16.0,
 
     # Model:
     # This should equal to `quantize_channels` if mu-law quantize enabled
     # otherwise num_mixture * 3 (pi, mean, log_scale)
+    # single mixture case: 2
     out_channels=10 * 3,
     layers=24,
     stacks=4,
-    residual_channels=512,
-    gate_channels=512,  # split into 2 gropus internally for gated activation
-    skip_out_channels=256,
-    dropout=1 - 0.95,
+    residual_channels=128,
+    gate_channels=256,  # split into 2 gropus internally for gated activation
+    skip_out_channels=128,
+    dropout=0.0,
     kernel_size=3,
-    # If True, apply weight normalization as same as DeepVoice3
-    weight_normalization=True,
-    # Use legacy code or not. Default is True since we already provided a model
-    # based on the legacy code that can generate high-quality audio.
-    # Ref: https://github.com/r9y9/wavenet_vocoder/pull/73
-    legacy=True,
 
     # Local conditioning (set negative value to disable))
     cin_channels=80,
+    cin_pad=2,
     # If True, use transposed convolutions to upsample conditional features,
     # otherwise repeat features to adjust time resolution
     upsample_conditional_features=True,
-    # should np.prod(upsample_scales) == hop_size
-    upsample_scales=[4, 4, 4, 4],
-    # Freq axis kernel size for upsampling network
-    freq_axis_kernel_size=3,
+    upsample_net="ConvInUpsampleNetwork",
+    upsample_params={
+        "upsample_scales": [4, 4, 4, 4],  # should np.prod(upsample_scales) == hop_size
+    },
 
     # Global conditioning (set negative value to disable)
     # currently limited for speaker embedding
@@ -88,31 +86,31 @@ hparams = tf.contrib.training.HParams(
     num_workers=2,
     tacotron_convert=False,
 
-    # train/test
-    # test size can be specified as portion or num samples
-    test_size=0.0441,  # 50 for CMU ARCTIC single speaker
-    test_num_samples=None,
-    random_state=1234,
-
     # Loss
 
     # Training:
-    batch_size=2,
-    adam_beta1=0.9,
-    adam_beta2=0.999,
-    adam_eps=1e-8,
-    amsgrad=False,
-    initial_learning_rate=1e-3,
+    batch_size=8,
+    optimizer="Adam",
+    optimizer_params={
+        "lr": 1e-3,
+        "eps": 1e-8,
+        "weight_decay": 0.0,
+    },
+
     # see lrschedule.py for available lr_schedule
-    lr_schedule="noam_learning_rate_decay",
-    lr_schedule_kwargs={},  # {"anneal_rate": 0.5, "anneal_interval": 50000},
+    lr_schedule="step_learning_rate_decay",
+    lr_schedule_kwargs={"anneal_rate": 0.5, "anneal_interval": 200000},
+
+    max_train_steps=1000000,
     nepochs=2000,
-    weight_decay=0.0,
+
     clip_thresh=-1,
+
     # max time steps can either be specified as sec or steps
     # if both are None, then full audio samples are used in a batch
     max_time_sec=None,
-    max_time_steps=8000,
+    max_time_steps=10240,  # 256 * 40
+
     # Hold moving averaged parameters and use them for evaluation
     exponential_moving_average=True,
     # averaged = decay * averaged + (1 - decay) * x
@@ -120,10 +118,10 @@ hparams = tf.contrib.training.HParams(
 
     # Save
     # per-step intervals
-    checkpoint_interval=10000,
-    train_eval_interval=10000,
+    checkpoint_interval=100000,
+    train_eval_interval=100000,
     # per-epoch interval
-    test_eval_epoch_interval=5,
+    test_eval_epoch_interval=50,
     save_optimizer_state=True,
 
     # Eval:

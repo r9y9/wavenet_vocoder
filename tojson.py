@@ -2,9 +2,10 @@
 """
 Dump hyper parameters to json file.
 
-usage: dump_hparams_to_json.py [options] <output_json_path>
+usage: tojson.py [options] <output_json_path>
 
 options:
+    --hparams=<parmas>       Hyper parameters [default: ].
     -h, --help               Show help message.
 """
 from docopt import docopt
@@ -20,13 +21,8 @@ if __name__ == "__main__":
     args = docopt(__doc__)
     output_json_path = args["<output_json_path>"]
 
+    hparams.parse(args["--hparams"])
     j = hparams.values()
-
-    # for compat legacy
-    for k in ["preset", "presets"]:
-        if k in j:
-            del j[k]
-
     with open(output_json_path, "w") as f:
         json.dump(j, f, indent=2)
     sys.exit(0)
